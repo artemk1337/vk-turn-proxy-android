@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">VK TURN Proxy</string>
+    <string name="profiles">Профили подключения</string>
+    <string name="import_profile">Импортировать профиль</string>
+    <string name="vk_link">Ссылка на звонок VK</string>
+    <string name="profile_hint">Импортируйте JSON-профиль или файл WireGuard .conf.</string>
+    <string name="connect">Подключить</string>
+    <string name="disconnect">Отключить</string>
+    <string name="delete">Удалить профиль</string>
+    <string name="delete_title">Удалить этот профиль?</string>
+    <string name="cancel">Отмена</string>
+    <string name="disconnected">Отключено</string>
+    <string name="connecting">Подключение…</string>
+    <string name="connected">Подключено</string>
+    <string name="error">Ошибка подключения</string>
+    <string name="no_profiles">Нет сохранённых профилей</string>
+    <string name="import_error">Не удалось импортировать профиль</string>
+    <string name="vpn_denied">Разрешение на VPN отклонено</string>
+    <string name="notification_channel">VPN-подключение</string>
+    <string name="quota">Ожидание квоты TURN</string>
+    <string name="reconnecting">Повторное подключение…</string>
+    <string name="stopping">Отключение…</string>
+    <string name="wireguard_validation">Проверьте ключи WireGuard, один Peer, полный IPv4-туннель в AllowedIPs и HTTPS-ссылку на приглашение в звонок VK. Скрипты и дополнительные директивы не поддерживаются.</string>
+    <string name="status_detail">%1$s\n%2$s</string>
+</resources>

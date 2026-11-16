@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">VK TURN Proxy</string>
+    <string name="profiles">Connection profiles</string>
+    <string name="import_profile">Import profile</string>
+    <string name="vk_link">VK call invitation link</string>
+    <string name="profile_hint">Import a connection JSON or a WireGuard .conf file.</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="delete">Delete profile</string>
+    <string name="delete_title">Delete this profile?</string>
+    <string name="cancel">Cancel</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="connecting">Connecting…</string>
+    <string name="connected">Connected</string>
+    <string name="error">Connection failed</string>
+    <string name="no_profiles">No saved profiles</string>
+    <string name="import_error">Could not import profile</string>
+    <string name="vpn_denied">VPN permission was declined</string>
+    <string name="notification_channel">VPN connection</string>
+    <string name="quota">Waiting for TURN quota</string>
+    <string name="reconnecting">Reconnecting…</string>
+    <string name="stopping">Disconnecting…</string>
+    <string name="wireguard_validation">Check the WireGuard keys, one peer, IPv4 full-tunnel AllowedIPs, and an HTTPS VK call invitation link. Scripts and custom directives are unsupported.</string>
+    <string name="status_detail">%1$s\n%2$s</string>
+</resources>
