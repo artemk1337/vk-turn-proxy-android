@@ -9,4 +9,3 @@ app/libs/*-sources.jar
 *.keystore
 .DS_Store
 .codebase-memory/
-

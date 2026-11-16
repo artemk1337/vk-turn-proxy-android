@@ -8,4 +8,3 @@
 Exclude the application's own UID from the VPN so TURN, authentication and recovery use the underlying network. Capture IPv6 and drop it until IPv6 tunneling is supported. Never log profile keys, credentials or imported JSON. Stop must cancel a concurrent connection attempt and release resources. A detached TUN descriptor belongs to the backend even when start fails.
 
 Run `go test ./...` in `backend`, build the AAR, then run `./gradlew testDebugUnitTest lintDebug assembleDebug`. Keep UI strings in English and Russian resources. Verify foreground lifecycle, VPN consent and cancellation on Android before release.
-
