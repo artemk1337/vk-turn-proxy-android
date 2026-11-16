@@ -1,0 +1,152 @@
+:root {
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 14px;
+  color-scheme: light;
+  --background: #f5f7fc;
+  --surface: #ffffff;
+  --ink: #17233c;
+  --muted: #5d6d87;
+  --border: #dce3ef;
+  --accent: #356ce7;
+  --selected: #e8efff;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #111827;
+  --surface: #192335;
+  --ink: #f0f4ff;
+  --muted: #adb9d0;
+  --border: #344258;
+  --accent: #93b1ff;
+  --selected: #2b406b;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--ink);
+}
+
+#demo-banner {
+  margin: 0;
+  min-height: 40px;
+  padding: 12px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#app {
+  position: relative;
+  width: min(100%, 420px);
+  min-height: 760px;
+  margin: 0 auto;
+  background: var(--background);
+}
+
+#home { padding: 20px 20px 24px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand img { object-fit: contain; }
+h1 { margin: 0; font-size: 22px; font-weight: 400; }
+h2 { margin: 0; font-size: 20px; font-weight: 400; }
+#connection-state { margin: 0; padding: 20px 0 8px; color: var(--muted); font-size: 16px; white-space: pre-line; }
+#traffic { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.profile-card { margin-top: 16px; padding: 12px 16px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.profile-card label { padding-top: 14px; }
+.profile-card select { border: 0; padding-left: 4px; height: 52px; }
+.profile-card #connect { width: 100%; margin-top: 8px; }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; min-width: 0; }
+.source-actions { margin-top: 8px; }
+.source-modes { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.source-modes button { flex: 1; border: 0; color: var(--muted); }
+.source-modes button[aria-pressed='true'] { background: var(--selected); color: var(--accent); }
+.profile-actions { margin-top: 8px; }
+#add-profile { width: 100%; min-height: 52px; margin-top: 16px; }
+.navigation { margin-top: 24px; gap: 6px; }
+.navigation button { min-height: 52px; padding: 0 6px; }
+
+button, input, select, textarea { font: inherit; }
+button, summary { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+}
+button.primary { background: #356ce7; color: #fff; border-color: #356ce7; }
+button:disabled, input:disabled, select:disabled, textarea:disabled { color: var(--muted); opacity: .55; cursor: default; }
+button:not(:disabled):hover { filter: brightness(1.08); }
+button:not(:disabled):active { filter: brightness(.94); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+label { display: block; padding: 14px 0 6px; color: var(--muted); font-size: 13px; }
+input:not([type='checkbox']), select, textarea {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+}
+textarea { resize: vertical; line-height: 1.35; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+.check-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 0; color: var(--ink); font-size: 14px; line-height: 1.4; cursor: pointer; }
+input[type='checkbox'] { width: 18px; height: 18px; flex-shrink: 0; margin: 0; accent-color: var(--accent); }
+
+#editor { position: absolute; inset: 0; min-height: 100%; overflow-y: auto; background: var(--background); }
+.editor-toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); }
+.editor-toolbar h2 { flex: 1; min-width: 0; font-size: 18px; }
+.editor-toolbar button { flex-shrink: 0; }
+.editor-content { padding: 12px 20px 32px; }
+.editor-content > label:first-child { padding-top: 0; }
+#profile-source { min-height: 144px; font-family: monospace; }
+.fields-row { gap: 12px; }
+details { margin-top: 20px; }
+summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: '⌄'; margin-left: 8px; color: var(--muted); }
+details[open] > summary::after { content: '⌃'; }
+.catalog-button, #update-catalogs { width: 100%; margin-top: 8px; }
+
+dialog {
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+}
+dialog::backdrop { background: #0009; }
+dialog h2 { margin-bottom: 12px; }
+dialog p { line-height: 1.5; }
+dialog input:not([type='checkbox']), dialog select, dialog textarea { background: var(--background); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.button-stack { display: grid; gap: 8px; }
+#app-updates { width: 100%; margin-top: 8px; }
+#log-lines { min-height: 150px; max-height: 420px; margin: 0; overflow: auto; font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+#catalog-list { min-height: 180px; max-height: 360px; overflow: auto; margin-top: 12px; }
+#catalog-list label { min-height: 48px; padding: 10px 0; color: var(--ink); }
+#catalog-list label { display: flex; align-items: center; gap: 12px; }
+#message-text { font-size: 16px; line-height: 1.5; }
+
+@media (min-width: 600px) {
+  #app { border: 1px solid var(--border); border-radius: 16px; overflow: clip; }
+  #demo-banner { padding-top: 20px; padding-bottom: 20px; }
+}
+
+@media (max-width: 360px) {
+  #home, .editor-content { padding-left: 16px; padding-right: 16px; }
+  .editor-toolbar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .editor-toolbar h2 { font-size: 16px; }
+  .editor-toolbar button { padding-left: 8px; padding-right: 8px; }
+}

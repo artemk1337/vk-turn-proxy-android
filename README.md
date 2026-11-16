@@ -4,7 +4,9 @@
 
 A native Android VPN client with a Kotlin interface and a Go WireGuard/TURN backend shared with VK TURN Proxy Desktop.
 
-<img src="screenshots/android-en-light.png" width="280" alt="Android application in English" />
+<a href="https://artemk1337.github.io/vk-turn-proxy-android/?lang=en"><img src="screenshots/interface-demo-en.gif" width="280" alt="Android interface demo" /></a>
+
+[Try the interface](https://artemk1337.github.io/vk-turn-proxy-android/?lang=en)
 
 ## Requirements
 

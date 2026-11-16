@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>VK TURN Proxy Android</title>
+    <link rel="icon" href="logo.png" type="image/png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <p id="demo-banner" role="note"></p>
+    <main id="app">
+      <section id="home" aria-label="VK TURN Proxy">
+        <header class="brand">
+          <img src="logo.png" width="36" height="36" alt="" />
+          <h1 data-i18n="app_name">VK TURN Proxy</h1>
+        </header>
+        <p id="connection-state" role="status" data-i18n="disconnected">Отключено</p>
+        <p id="traffic" hidden></p>
+        <div class="profile-card">
+          <label for="profile-select" data-i18n="profiles">Профили подключения</label>
+          <select id="profile-select"></select>
+          <button id="connect" class="primary" data-i18n="connect">Подключить</button>
+          <div class="row profile-actions">
+            <button id="edit-profile" data-i18n="edit_action">Изменить</button>
+            <button id="delete-profile" data-i18n="delete_action">Удалить</button>
+          </div>
+        </div>
+        <button id="add-profile" class="primary" data-i18n="add_profile">Добавить профиль</button>
+        <nav class="row navigation">
+          <button data-open="account" data-i18n="account_title">Аккаунт VK</button>
+          <button data-open="settings" data-i18n="settings">Настройки</button>
+          <button data-open="logs" data-i18n="logs">Журнал</button>
+        </nav>
+      </section>
+
+      <section id="editor" hidden aria-labelledby="editor-title">
+        <header class="editor-toolbar">
+          <button data-editor-cancel data-i18n="cancel">Отмена</button>
+          <h2 id="editor-title" data-i18n="edit_profile">Редактировать профиль</h2>
+          <button class="primary" type="submit" form="profile-form" data-i18n="save">Сохранить</button>
+        </header>
+        <form id="profile-form" class="editor-content">
+          <div class="source-modes" role="group" aria-label="Profile format">
+            <button type="button" data-mode="link" aria-pressed="true" data-i18n="mode_link">Ссылка / JSON</button>
+            <button type="button" data-mode="wireguard" aria-pressed="false" data-i18n="mode_wireguard">WireGuard</button>
+          </div>
+          <select id="source-mode" hidden aria-label="Profile format">
+            <option value="link" data-i18n="mode_link">Ссылка / JSON</option>
+            <option value="wireguard" data-i18n="mode_wireguard">WireGuard</option>
+          </select>
+          <label for="profile-source" data-i18n="link_json_label">Ссылка подключения или JSON</label>
+          <textarea id="profile-source" rows="5" spellcheck="false" required></textarea>
+          <div class="row source-actions">
+            <button id="paste-source" type="button" data-i18n="paste_clipboard">Вставить</button>
+            <button id="open-source" type="button" data-i18n="from_file">Из файла</button>
+          </div>
+          <input id="source-file" type="file" accept=".conf,.json,.txt" hidden />
+          <div id="wg-fields" hidden>
+            <label for="vk-link" data-i18n="vk_link">Ссылка на звонок VK</label>
+            <input id="vk-link" type="text" autocomplete="off" />
+            <label for="peer" data-i18n="editor_peer_override">Другой сервер (необязательно)</label>
+            <input id="peer" type="text" autocomplete="off" />
+            <label for="transport" data-i18n="editor_transport">Транспорт</label>
+            <select id="transport"><option value="srtp">SRTP</option><option value="dtls">DTLS</option></select>
+          </div>
+          <label for="profile-name" data-i18n="editor_name">Название профиля</label>
+          <input id="profile-name" type="text" maxlength="120" autocomplete="off" />
+          <div class="row fields-row">
+            <div>
+              <label for="connections" data-i18n="editor_connections_short">Соединения TURN</label>
+              <input id="connections" type="number" min="1" max="120" required />
+            </div>
+            <div>
+              <label for="mtu" data-i18n="editor_mtu_short">MTU туннеля</label>
+              <input id="mtu" type="number" min="1000" max="1400" required />
+            </div>
+          </div>
+          <label for="turn-transport" data-i18n="editor_turn">Соединение TURN</label>
+          <select id="turn-transport">
+            <option value="" data-i18n="from_profile">Из профиля</option>
+            <option value="tcp">TCP</option><option value="udp">UDP</option>
+          </select>
+          <details>
+            <summary data-i18n="advanced_settings">Дополнительные настройки</summary>
+            <label for="dns" data-i18n="editor_dns">DNS-серверы</label>
+            <input id="dns" type="text" autocomplete="off" />
+            <label for="keepalive" data-i18n="editor_keepalive">Keepalive, секунд (0–65535)</label>
+            <input id="keepalive" type="number" min="0" max="65535" />
+            <label for="turn-server" data-i18n="editor_turn_server">Адрес TURN-сервера</label>
+            <input id="turn-server" type="text" />
+            <label for="uplink" data-i18n="editor_uplink">Ограничение отправки</label>
+            <input id="uplink" type="number" min="0" />
+            <label for="cooldown" data-i18n="editor_cooldown">Пауза между запросами учётных данных</label>
+            <input id="cooldown" type="number" min="0" />
+            <label for="vk-auth" data-i18n="editor_vk_auth">Требовать вход VK</label>
+            <select id="vk-auth"><option value="" data-i18n="from_profile"></option><option value="true" data-i18n="option_yes"></option><option value="false" data-i18n="option_no"></option></select>
+            <label for="legacy-captcha" data-i18n="editor_legacy_captcha">Использовать прежнюю капчу</label>
+            <select id="legacy-captcha"><option value="" data-i18n="from_profile"></option><option value="true" data-i18n="option_yes"></option><option value="false" data-i18n="option_no"></option></select>
+          </details>
+          <details id="routing-details">
+            <summary data-i18n="routing">Маршрутизация</summary>
+            <label for="routing-mode" data-i18n="routing_mode">Режим маршрутизации</label>
+            <select id="routing-mode">
+              <option value="profile" data-i18n="from_profile">Из профиля</option>
+              <option value="" data-i18n="routing_all">Весь трафик через VPN</option>
+              <option value="include" data-i18n="routing_include">Выбранные назначения через VPN</option>
+              <option value="exclude" data-i18n="routing_exclude">Выбранные назначения напрямую</option>
+            </select>
+            <button id="geoip" type="button" class="catalog-button" data-i18n="geoip">Страны и сети GeoIP</button>
+            <button id="geosite" type="button" class="catalog-button" data-i18n="geosite">Домены GeoSite</button>
+            <label for="routing-custom" data-i18n="routing_custom">Свои домены, IP или CIDR (по одному в строке)</label>
+            <textarea id="routing-custom" rows="3" maxlength="65536" spellcheck="false"></textarea>
+            <label class="check-row"><input id="local-direct" type="checkbox" /><span data-i18n="routing_local">Локальные назначения напрямую</span></label>
+            <button id="update-catalogs" type="button" data-i18n="update_catalogs">Обновить каталоги маршрутизации</button>
+          </details>
+        </form>
+      </section>
+    </main>
+
+    <dialog id="settings-dialog" aria-labelledby="settings-title">
+      <h2 id="settings-title" data-i18n="settings">Настройки</h2>
+      <form id="settings-form">
+        <label for="language" data-i18n="language">Язык</label>
+        <select id="language"><option value="en">English</option><option value="ru">Русский</option></select>
+        <label for="theme" data-i18n="theme">Тема</label>
+        <select id="theme"><option value="light" data-i18n="light">Светлая</option><option value="dark" data-i18n="dark">Тёмная</option></select>
+        <label class="check-row"><input id="autostart" type="checkbox" /><span data-i18n="autostart">Подключать выбранный профиль после перезагрузки</span></label>
+        <label class="check-row"><input id="auto-update" type="checkbox" /><span data-i18n="routing_auto_update">Обновлять каталоги маршрутизации ежедневно</span></label>
+        <button id="app-updates" type="button" data-i18n="app_updates">Обновления приложения</button>
+        <label for="log-limit" data-i18n="log_limit">Строк в журнале (100–10000)</label>
+        <input id="log-limit" type="number" min="100" max="10000" required />
+        <footer class="dialog-actions">
+          <button type="button" data-close data-i18n="cancel">Отмена</button>
+          <button type="submit" class="primary" data-i18n="save">Сохранить</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="account-dialog" aria-labelledby="account-title">
+      <h2 id="account-title" data-i18n="account_title">Аккаунт VK</h2>
+      <p data-i18n="account_signed_out">Вход не выполнен</p>
+      <div class="button-stack">
+        <button data-demo-only data-i18n="account_login">Войти в VK</button>
+        <button data-demo-only data-i18n="account_import">Импортировать cookies</button>
+        <button data-demo-only data-i18n="account_check">Проверить аккаунт</button>
+        <button data-demo-only data-i18n="account_logout">Выйти из аккаунта</button>
+      </div>
+      <footer class="dialog-actions"><button data-close data-i18n="close">Закрыть</button></footer>
+    </dialog>
+
+    <dialog id="logs-dialog" aria-labelledby="logs-title">
+      <h2 id="logs-title" data-i18n="logs">Журнал</h2>
+      <pre id="log-lines"></pre>
+      <footer class="dialog-actions">
+        <button id="copy-logs" data-i18n="copy_logs">Копировать журнал</button>
+        <button data-close data-i18n="close">Закрыть</button>
+      </footer>
+    </dialog>
+
+    <dialog id="catalog-dialog" aria-labelledby="catalog-title">
+      <h2 id="catalog-title"></h2>
+      <form id="catalog-form">
+        <label for="catalog-search" data-i18n="search">Поиск</label>
+        <input id="catalog-search" type="search" autocomplete="off" />
+        <div id="catalog-list"></div>
+        <footer class="dialog-actions">
+          <button id="clear-catalog" type="button" data-i18n="clear_selection">Сбросить выбор</button>
+          <button type="button" data-close data-i18n="cancel">Отмена</button>
+          <button type="submit" class="primary">OK</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="message-dialog" aria-labelledby="message-text">
+      <h2 id="message-text"></h2>
+      <footer class="dialog-actions"><button data-close>OK</button></footer>
+    </dialog>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

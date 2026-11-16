@@ -4,7 +4,9 @@
 
 Нативный VPN-клиент для Android с интерфейсом на Kotlin и общим с десктопным приложением транспортом WireGuard/TURN на Go.
 
-<img src="screenshots/android-ru-dark.png" width="280" alt="Приложение Android на русском языке" />
+<a href="https://artemk1337.github.io/vk-turn-proxy-android/?lang=ru"><img src="screenshots/interface-demo-ru.gif" width="280" alt="Демонстрация Android-интерфейса" /></a>
+
+[Попробовать интерфейс](https://artemk1337.github.io/vk-turn-proxy-android/?lang=ru)
 
 ## Требования
 
