@@ -23,8 +23,8 @@ The app checks stable GitHub releases when opened, at most once a day. Open **Se
 Download the signed APK from GitHub Releases. When switching from a debug APK, uninstall the debug application and import your profiles again. [Releases](https://github.com/artemk1337/vk-turn-proxy-android/releases)
 
 1. Install the APK and open VK TURN Proxy.
-2. Tap Add profile. Choose Link / JSON to paste a `vkturnproxy` connection link, Base64 or JSON. Choose WireGuard to paste a configuration or select a `.conf` file, then enter the VK call invitation link.
-3. Select the profile, tap Connect and approve Android's VPN permission request.
+2. Open the **+** tab. Paste a connection link or JSON, scan a configuration QR code, or import a file. Review the profile in the editor before saving. WireGuard configurations also require a VK call invitation link.
+3. Tap the profile name on Home to open the bottom sheet. Select a profile using the round control on the left. The gear on the right opens its settings. Tap the round power button on Home and approve the Android VPN request.
 4. Disconnect in the application or its persistent notification.
 
 Profiles are stored in private application storage with backups disabled. The foreground VPN service keeps the connection independent of the activity. The application routes its own transport traffic over the underlying network and captures IPv6 to prevent it from bypassing the IPv4 tunnel.

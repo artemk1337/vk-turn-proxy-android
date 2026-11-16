@@ -9,8 +9,8 @@ android {
         applicationId = "com.vkturn.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.5.0"
+        versionCode = 7
+        versionName = "0.6.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -24,5 +24,6 @@ android {
 }
 dependencies {
     implementation(files("libs/backend.aar"))
+    implementation("com.google.zxing:core:3.5.3")
     testImplementation("junit:junit:4.13.2")
 }

@@ -1,0 +1,6 @@
+<resources>
+    <string name="qr_scan_title">Scan QR code</string>
+    <string name="qr_scan_hint">Point the camera at the configuration QR code.</string>
+    <string name="qr_camera_permission">Allow camera access in Android settings to scan QR codes.</string>
+    <string name="qr_camera_failed">Could not open the camera. Check that another app is not using it, then try again.</string>
+</resources>

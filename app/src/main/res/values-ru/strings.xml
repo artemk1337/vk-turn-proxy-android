@@ -66,8 +66,6 @@
     <string name="clear_selection">Сбросить выбор</string>
     <string name="disconnect_before_edit">Отключите VPN перед импортом или изменением профилей.</string>
     <string name="add_profile">Добавить профиль</string>
-    <string name="edit_action">Изменить</string>
-    <string name="delete_action">Удалить</string>
     <string name="mode_link">Ссылка / JSON</string>
     <string name="mode_wireguard">WireGuard</string>
     <string name="link_json_label">Ссылка подключения или JSON</string>
@@ -104,4 +102,17 @@
     <string name="update_permission">Разрешите установку из этого приложения в настройках Android и вернитесь для продолжения.</string>
     <string name="update_confirm">Android запросит подтверждение установки. Обновление закроет приложение и прервёт активное VPN-подключение.</string>
     <string name="update_install_failed">Не удалось установить обновление. Нужен APK более новой версии с той же подписью, что у установленного приложения. Попробуйте скачать его повторно.</string>
+    <string name="nav_home">Главная</string>
+    <string name="nav_profiles">Профили</string>
+    <string name="log_lines">Строк в журнале</string>
+    <string name="settings_saved">Настройки сохранены</string>
+    <string name="import_source">Ссылка или конфигурация</string>
+    <string name="scan_qr">Сканировать QR-код</string>
+    <string name="choose_profile">Выберите профиль</string>
+    <string name="profile_settings">Настройки профиля</string>
+    <string name="continue_import">Продолжить</string>
+    <string name="select_profile_name">Выбрать %1$s</string>
+    <string name="profile_settings_name">Настройки профиля %1$s</string>
+    <string name="import_too_large">Размер профиля превышает 4 МиБ</string>
+    <string name="import_from_file">Импорт из файла</string>
 </resources>

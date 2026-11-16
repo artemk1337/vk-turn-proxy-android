@@ -41,6 +41,7 @@ internal class ProfileEditor(
     private val onChooseFile: () -> Unit,
     private val onSave: (String) -> Unit,
     private val onClosed: () -> Unit,
+    private val onDelete: (() -> Unit)? = null,
 ) {
     private val ui = ProfileUi(activity)
     private val defaults = JSONObject(Mobile.defaults())
@@ -67,6 +68,7 @@ internal class ProfileEditor(
     private var saving = false
     private var connectionActive = false
     private lateinit var saveButton: Button
+    private var deleteButton: Button? = null
     private lateinit var cancelButton: Button
     private lateinit var sourceInput: EditText
     private lateinit var sourceLabel: TextView
@@ -126,6 +128,10 @@ internal class ProfileEditor(
         routingContent = column()
         disclosure(R.string.routing, routingContent, restored.optBoolean("routingOpen"))
         buildRouting()
+        if (profile != null && onDelete != null) {
+            deleteButton = ui.button(R.string.delete) { if (!saving && !connectionActive) onDelete() }
+            content.addView(deleteButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(28) })
+        }
         dialog.setContentView(root)
         dialog.setOnDismissListener { io.shutdown(); onClosed() }
         root.isFocusableInTouchMode = true
@@ -232,6 +238,7 @@ internal class ProfileEditor(
     fun setConnectionActive(value: Boolean) { connectionActive = value; updateSaveButton() }
     private fun updateSaveButton() {
         saveButton.isEnabled = !saving && !connectionActive
+        deleteButton?.isEnabled = !saving && !connectionActive
         cancelButton.isEnabled = !saving
         dialog.setCancelable(!saving)
     }

@@ -13,3 +13,7 @@ WireGuard Go is distributed under the MIT license. Go mobile and the Go runtime 
 ## Routing
 
 Userspace packet forwarding uses the gVisor network stack under the Apache License 2.0 and its Go dependencies. Catalog parsing and policy matching reuse the desktop project's routing packages. [gVisor](https://gvisor.dev/)
+
+## QR scanning
+
+QR decoding uses ZXing core 3.5.3 under the Apache License 2.0. Copyright remains with the ZXing authors. [ZXing](https://github.com/zxing/zxing) · [License](https://github.com/zxing/zxing/blob/master/LICENSE)
