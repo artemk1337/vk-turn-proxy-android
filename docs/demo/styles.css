@@ -150,3 +150,5 @@ dialog input:not([type='checkbox']), dialog select, dialog textarea { background
   .editor-toolbar h2 { font-size: 16px; }
   .editor-toolbar button { padding-left: 8px; padding-right: 8px; }
 }
+
+#about-dialog a { color: var(--accent); overflow-wrap: anywhere; }

@@ -21,6 +21,8 @@
     <string name="status_detail">%1$s\n%2$s</string>
     <string name="edit_profile">Edit profile</string>
     <string name="save">Save</string>
+    <string name="github_repository" translatable="false">https://github.com/artemk1337/vk-turn-proxy-android</string>
+    <string name="about">About</string>
     <string name="settings">Settings</string>
     <string name="logs">Logs</string>
     <string name="logs_empty">No connection events yet</string>

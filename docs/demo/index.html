@@ -131,11 +131,18 @@
         <button id="app-updates" type="button" data-i18n="app_updates">Обновления приложения</button>
         <label for="log-limit" data-i18n="log_limit">Строк в журнале (100–10000)</label>
         <input id="log-limit" type="number" min="100" max="10000" required />
+        <button type="button" data-open="about" data-i18n="about">О приложении</button>
         <footer class="dialog-actions">
           <button type="button" data-close data-i18n="cancel">Отмена</button>
           <button type="submit" class="primary" data-i18n="save">Сохранить</button>
         </footer>
       </form>
+    </dialog>
+
+    <dialog id="about-dialog" aria-labelledby="about-title">
+      <h2 id="about-title" data-i18n="about">О приложении</h2>
+      <p><a href="https://github.com/artemk1337/vk-turn-proxy-android" target="_blank" rel="noopener noreferrer">https://github.com/artemk1337/vk-turn-proxy-android</a></p>
+      <footer class="dialog-actions"><button data-close data-i18n="close">Закрыть</button></footer>
     </dialog>
 
     <dialog id="account-dialog" aria-labelledby="account-title">

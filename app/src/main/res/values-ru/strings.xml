@@ -21,6 +21,7 @@
     <string name="status_detail">%1$s\n%2$s</string>
     <string name="edit_profile">Редактировать профиль</string>
     <string name="save">Сохранить</string>
+    <string name="about">О приложении</string>
     <string name="settings">Настройки</string>
     <string name="logs">Журнал</string>
     <string name="logs_empty">Событий подключения пока нет</string>

@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.text.method.LinkMovementMethod
+import android.text.util.Linkify
 import android.view.Gravity
 import android.view.View
 import android.widget.AdapterView
@@ -310,6 +312,7 @@ class MainActivity : Activity() {
         val autoUpdate = CheckBox(this).apply { setText(R.string.routing_auto_update); isChecked = before.routingAutoUpdate; content.addView(this) }
         content.addView(button(R.string.app_updates) { startActivity(Intent(this, AppUpdateActivity::class.java)) })
         val limit = EditText(this).apply { hint = getString(R.string.log_limit, logBounds.getInt("min"), logBounds.getInt("max")); inputType = InputType.TYPE_CLASS_NUMBER; setText(String.format(resources.configuration.locales[0], "%d", before.logLines)); content.addView(this) }
+        content.addView(button(R.string.about) { showAbout() })
         val dialog = AlertDialog.Builder(this).setTitle(R.string.settings).setView(ScrollView(this).apply { addView(content) })
             .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.save, null).create()
         dialog.setOnShowListener {
@@ -328,6 +331,17 @@ class MainActivity : Activity() {
             }
         }
         dialog.show()
+    }
+
+    private fun showAbout() {
+        val link = TextView(this).apply {
+            setPadding(dp(24), dp(16), dp(24), dp(16))
+            autoLinkMask = Linkify.WEB_URLS
+            setText(R.string.github_repository)
+            movementMethod = LinkMovementMethod.getInstance()
+        }
+        AlertDialog.Builder(this).setTitle(R.string.about).setView(link)
+            .setPositiveButton(R.string.close, null).show()
     }
 
     private fun showLogs() {
