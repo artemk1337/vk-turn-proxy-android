@@ -22,5 +22,5 @@ Run `go test ./...` in `backend`, build the AAR, then run `./gradlew testDebugUn
 
 - Build with `python3 docs/demo/build.py /tmp/android-demo` and serve with `python3 -m http.server --directory /tmp/android-demo`. Match native screens and mark simulated connections. Keep demo data in memory.
 - Record `?lang=ru` and `?lang=en` at 420×840 with Playwright. Capture menu/dialog changes as PNG frames at 6 fps into `/tmp`. Assemble GIFs with Pillow using 128 colors, 167 ms per frame and `loop=0`.
-- Save GIFs as `screenshots/interface-demo-{ru,en}.gif`, link them to Pages in both READMEs and include them in release assets and `SHA256SUMS`.
+- Save GIFs as `screenshots/interface-demo-{ru,en}.gif` and link them to Pages in both READMEs. Keep screenshots and GIFs in the repository, outside release assets and release checksums.
 - `.github/workflows/demo-pages.yml` publishes Pages from `main`. Set Pages source to GitHub Actions. After a `[skip ci]` release commit, run `gh workflow run demo-pages.yml --ref main` and wait for successful deployment.
