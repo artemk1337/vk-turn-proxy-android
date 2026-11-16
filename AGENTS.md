@@ -17,3 +17,10 @@ Keep desktop import compatibility, including literal `+` in base64 connection UR
 WireGuard import normalizes numeric MTU values outside the tunnel bounds to the shared default before parsing. Preserve duplicate/directive validation. Apply an explicit peer override before endpoint validation. Replacing WireGuard source must retain unknown profile extensions while clearing stale known fields. Guard asynchronous editor callbacks by their owning form generation and retain private drafts across activity destruction.
 
 Run `go test ./...` in `backend`, build the AAR, then run `./gradlew testDebugUnitTest lintDebug assembleDebug`. Keep UI strings in English and Russian resources. Verify foreground lifecycle, VPN consent and cancellation on Android before release.
+
+## Browser demo and README GIFs
+
+- Build with `python3 docs/demo/build.py /tmp/android-demo` and serve with `python3 -m http.server --directory /tmp/android-demo`. Match native screens and mark simulated connections. Keep demo data in memory.
+- Record `?lang=ru` and `?lang=en` at 420×840 with Playwright. Capture menu/dialog changes as PNG frames at 6 fps into `/tmp`. Assemble GIFs with Pillow using 128 colors, 167 ms per frame and `loop=0`.
+- Save GIFs as `screenshots/interface-demo-{ru,en}.gif`, link them to Pages in both READMEs and include them in release assets and `SHA256SUMS`.
+- `.github/workflows/demo-pages.yml` publishes Pages from `main`. Set Pages source to GitHub Actions. After a `[skip ci]` release commit, run `gh workflow run demo-pages.yml --ref main` and wait for successful deployment.
