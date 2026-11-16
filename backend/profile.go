@@ -17,7 +17,6 @@ import (
 
 	desktopsettings "github.com/artemk1337/vk-turn-proxy-desktop/pkg/desktop-settings"
 	"github.com/artemk1337/vk-turn-proxy-desktop/pkg/proxy"
-	wgprofile "github.com/artemk1337/vk-turn-proxy-desktop/pkg/wireguard-profile"
 )
 
 type profile struct {
@@ -52,12 +51,6 @@ type settings struct {
 	CooldownSeconds    int             `json:"credPoolCooldownSeconds"`
 	ForceLegacyCaptcha bool            `json:"forceLegacyCaptcha"`
 	VKAuth             bool            `json:"vkAuth"`
-}
-
-// DescribeWireGuard converts a supported WireGuard config to a connection profile.
-func DescribeWireGuard(config, vkLink string) (string, error) {
-	data, err := wgprofile.Build(wgprofile.Options{Config: config, VKLink: vkLink, UseSrtp: true})
-	return string(data), err
 }
 
 // DescribeProfile validates a profile and returns public VPN interface parameters.

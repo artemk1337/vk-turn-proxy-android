@@ -1,9 +1,7 @@
 <resources>
     <string name="app_name">VK TURN Proxy</string>
     <string name="profiles">Профили подключения</string>
-    <string name="import_profile">Импортировать профиль</string>
     <string name="vk_link">Ссылка на звонок VK</string>
-    <string name="profile_hint">Импортируйте ссылку, Base64, JSON-профиль или файл WireGuard .conf.</string>
     <string name="connect">Подключить</string>
     <string name="disconnect">Отключить</string>
     <string name="delete">Удалить профиль</string>
@@ -24,9 +22,6 @@
     <string name="edit_profile">Редактировать профиль</string>
     <string name="save">Сохранить</string>
     <string name="settings">Настройки</string>
-    <string name="paste_profile">Вставить профиль</string>
-    <string name="profile_input">Ссылка импорта, Base64, JSON или конфигурация WireGuard</string>
-    <string name="import_file">Импортировать файл</string>
     <string name="logs">Журнал</string>
     <string name="logs_empty">Событий подключения пока нет</string>
     <string name="language">Язык</string>
@@ -37,12 +32,9 @@
     <string name="log_limit">Строк в журнале (%1$d–%2$d)</string>
     <string name="routing_auto_update">Обновлять каталоги маршрутизации ежедневно</string>
     <string name="editor_name">Название профиля</string>
-    <string name="editor_peer">Сервер host:port</string>
     <string name="editor_transport">Транспорт</string>
     <string name="editor_turn">Соединение TURN</string>
     <string name="from_profile">Из профиля</string>
-    <string name="editor_connections">Соединений TURN (%1$d–%2$d)</string>
-    <string name="editor_mtu">MTU туннеля (%1$d–%2$d)</string>
     <string name="editor_dns">DNS-серверы</string>
     <string name="editor_keepalive">Keepalive, секунд (0–65535)</string>
     <string name="editor_turn_server">Адрес TURN-сервера (необязательно)</string>
@@ -64,9 +56,7 @@
     <string name="selected_count">Выбрано %1$d</string>
     <string name="invalid_value">Проверьте значение</string>
     <string name="profile_save_error">Не удалось сохранить профиль</string>
-    <string name="paste_empty">Сначала вставьте профиль</string>
-    <string name="deep_link_title">Импорт профиля подключения</string>
-    <string name="profile_import_preview">Проверьте профиль и нажмите «Сохранить» для импорта.</string>
+    <string name="paste_empty">Вставьте ссылку или конфигурацию</string>
     <string name="close">Закрыть</string>
     <string name="copy_logs">Копировать журнал</string>
     <string name="search">Поиск</string>
@@ -74,7 +64,27 @@
     <string name="retry_remaining">%1$s\nСледующая проверка через %2$d с</string>
     <string name="clear_selection">Сбросить выбор</string>
     <string name="disconnect_before_edit">Отключите VPN перед импортом или изменением профилей.</string>
-    <string name="edit_source">Изменить исходный профиль</string>
-    <string name="apply_source">Применить</string>
-    <string name="edit_source_hint">Укажите JSON-профиль, ссылку импорта или конфигурацию WireGuard для замены полей редактора. Сохраните профиль, чтобы оставить изменения.</string>
+    <string name="add_profile">Добавить профиль</string>
+    <string name="edit_action">Изменить</string>
+    <string name="delete_action">Удалить</string>
+    <string name="mode_link">Ссылка / JSON</string>
+    <string name="mode_wireguard">WireGuard</string>
+    <string name="link_json_label">Ссылка подключения или JSON</string>
+    <string name="link_json_hint">vkturnproxy://import?data=…</string>
+    <string name="wg_config">Конфигурация WireGuard</string>
+    <string name="wg_config_hint">[Interface]\nPrivateKey = …\n\n[Peer]\nPublicKey = …</string>
+    <string name="paste_clipboard">Вставить</string>
+    <string name="from_file">Из файла</string>
+    <string name="from_config">Из конфигурации</string>
+    <string name="editor_peer_override">Другой сервер (необязательно)</string>
+    <string name="editor_connections_short">Соединения TURN</string>
+    <string name="editor_mtu_short">MTU туннеля</string>
+    <string name="advanced_settings">Дополнительные настройки</string>
+    <string name="download_link_hint">Скачайте профиль и выберите «Из файла». В это поле можно вставить ссылку vkturnproxy, Base64 или JSON.</string>
+    <string name="switch_to_link">Для этого профиля выберите режим «Ссылка / JSON».</string>
+    <string name="switch_to_wireguard">Для этой конфигурации выберите режим WireGuard.</string>
+    <string name="value_range">Допустимо %1$d–%2$d</string>
+    <string name="option_yes">Да</string>
+    <string name="option_no">Нет</string>
+    <string name="routing_mode">Режим маршрутизации</string>
 </resources>

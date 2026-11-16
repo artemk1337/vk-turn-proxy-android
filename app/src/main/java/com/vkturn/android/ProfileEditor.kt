@@ -2,17 +2,28 @@ package com.vkturn.android
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
+import android.content.ClipboardManager
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.StateListDrawable
 import android.text.Editable
 import android.text.InputFilter
 import android.text.InputType
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.View
+import android.view.Window
+import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ListView
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
@@ -24,254 +35,433 @@ import java.util.concurrent.Executors
 
 internal class ProfileEditor(
     private val activity: Activity,
-    private val profile: String,
+    private val profile: String?,
     initialDraft: String?,
-    private val onSourceChanged: (String) -> Unit,
+    initialInput: String = "",
+    private val onChooseFile: () -> Unit,
     private val onSave: (String) -> Unit,
     private val onClosed: () -> Unit,
 ) {
+    private val ui = ProfileUi(activity)
     private val defaults = JSONObject(Mobile.defaults())
+    private val source = profile?.let { JSONObject(Mobile.getProfileSettings(it)) } ?: JSONObject()
+    private val metadata = profile?.let { JSONObject(it).optJSONObject("androidEditor") } ?: JSONObject()
+    private val restored = initialDraft?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
+    private val existingLink = profile?.let { JSONObject(it).apply { remove("androidEditor") }.toString() }.orEmpty()
+    private val initialInputs = ProfileInput.initial(initialInput)
+    private val fallbackMode = if (initialInputs.mode == ProfileInputMode.WIREGUARD) "wireguard" else "link"
+    private val mode = restored.optString("mode", metadata.optString("mode", fallbackMode))
+    private val inputs = ProfileInput(
+        mode = if (mode == "wireguard") ProfileInputMode.WIREGUARD else ProfileInputMode.LINK,
+        link = restored.optString("linkInput", initialInputs.link.ifEmpty { metadata.optString("linkSource", existingLink) }),
+        wireGuard = restored.optString("wgInput", metadata.optString("wgConfig", initialInputs.wireGuard)),
+    )
     private val fields = linkedMapOf<String, EditText>()
+    private val baselineFields = linkedMapOf<String, String>()
     private val selectors = linkedMapOf<String, Pair<Spinner, List<String>>>()
-    private val checks = linkedMapOf<String, CheckBox>()
-    private val source = JSONObject(Mobile.getProfileSettings(profile))
-    private val draft = initialDraft?.let { runCatching { JSONObject(it) }.getOrNull() } ?: source
-    private val routing = draft.optJSONObject("routing") ?: JSONObject()
+    private val routing = restored.optJSONObject("routing") ?: source.optJSONObject("routing") ?: JSONObject()
     private val selectedGeoIP = values(routing.optJSONArray("geoip")).toMutableSet()
     private val selectedGeoSite = values(routing.optJSONArray("geosite")).toMutableSet()
     private val io = Executors.newSingleThreadExecutor()
-    private lateinit var dialog: AlertDialog
+    private val dialog = Dialog(activity)
     private var saving = false
     private var connectionActive = false
-    private var sourceDialog: AlertDialog? = null
-    private var sourceInput: EditText? = null
-    private var sourceLink: EditText? = null
+    private lateinit var saveButton: Button
+    private lateinit var cancelButton: Button
+    private lateinit var sourceInput: EditText
+    private lateinit var sourceLabel: TextView
+    private lateinit var sourceError: TextView
+    private lateinit var modeControl: RadioGroup
+    private val linkModeId = View.generateViewId()
+    private val wireGuardModeId = View.generateViewId()
+    private lateinit var wgOptions: LinearLayout
+    private lateinit var advanced: LinearLayout
+    private lateinit var routingContent: LinearLayout
+    private lateinit var scroll: ScrollView
     private lateinit var geoIP: Button
     private lateinit var geoSite: Button
     private lateinit var custom: EditText
     private lateinit var localDirect: CheckBox
     private lateinit var routingMode: Spinner
-    private val modes = listOf("", "include", "exclude")
-    private val content = LinearLayout(activity).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(20), dp(12), dp(20), dp(20))
-    }
+    private val modes = listOf("profile", "", "include", "exclude")
+    private val content = column().apply { setPadding(dp(20), dp(12), dp(20), dp(32)) }
 
     init {
-        content.addView(Button(activity).apply {
-            setText(R.string.edit_source)
-            setOnClickListener { showSourceEditor() }
-        })
-        field("name", R.string.editor_name, max = 120)
-        field("peer", R.string.editor_peer)
-        selector("transport", R.string.editor_transport, listOf("srtp", "dtls"), listOf("SRTP", "DTLS"))
-        selector("turnTransport", R.string.editor_turn, listOf("", "tcp", "udp"), listOf(activity.getString(R.string.from_profile), "TCP", "UDP"))
-        field("connections", R.string.editor_connections, numeric = true)
-        field("mtu", R.string.editor_mtu, numeric = true)
-        field("dns", R.string.editor_dns)
-        field("vkLink", R.string.vk_link)
-        field("keepalive", R.string.editor_keepalive, numeric = true)
-        field("turnServerOverride", R.string.editor_turn_server)
-        field("uplinkPaceKiB", R.string.editor_uplink, numeric = true)
-        field("cooldownSeconds", R.string.editor_cooldown, numeric = true)
-        check("vkAuth", R.string.editor_vk_auth)
-        check("forceLegacyCaptcha", R.string.editor_legacy_captcha)
-        label(R.string.routing)
-        routingMode = Spinner(activity).apply {
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf(
-                activity.getString(R.string.routing_all), activity.getString(R.string.routing_include), activity.getString(R.string.routing_exclude)))
-            setSelection(modes.indexOf(routing.optString("mode")).coerceAtLeast(0))
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val root = column().apply { setBackgroundColor(ui.background); fitsSystemWindows = true }
+        val toolbar = LinearLayout(activity).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setBackgroundColor(ui.surface)
         }
-        content.addView(routingMode, LinearLayout.LayoutParams(-1, dp(56)))
-        geoIP = Button(activity).apply { setOnClickListener { chooseCatalog("geoip", selectedGeoIP, R.string.geoip) } }
-        geoSite = Button(activity).apply { setOnClickListener { chooseCatalog("geosite", selectedGeoSite, R.string.geosite) } }
-        content.addView(geoIP)
-        content.addView(geoSite)
-        updateSelectionLabels()
-        custom = EditText(activity).apply {
-            id = View.generateViewId()
-            setText(routing.optString("custom"))
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            minLines = 3
-            maxLines = 7
-            filters = arrayOf(InputFilter.LengthFilter(65536))
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-        }
-        label(R.string.routing_custom, custom)
-        content.addView(custom, LinearLayout.LayoutParams(-1, -2))
-        localDirect = CheckBox(activity).apply { setText(R.string.routing_local); isChecked = routing.optBoolean("localDirect") }
-        content.addView(localDirect)
-        content.addView(Button(activity).apply {
-            setText(R.string.update_catalogs)
-            setOnClickListener {
-                isEnabled = false
-                RoutingCatalogUpdates.update(activity) { result ->
-                    if (!dialog.isShowing || activity.isDestroyed) return@update
-                    isEnabled = true
-                    result.onSuccess { showMessage(R.string.catalog_updated) }
-                        .onFailure { showMessage(R.string.error, it.message.orEmpty()) }
-                }
-            }
-        })
-        dialog = AlertDialog.Builder(activity).setTitle(R.string.edit_profile)
-            .setView(ScrollView(activity).apply { addView(content) })
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.save, null)
-            .create()
-        dialog.setOnShowListener {
-            setConnectionActive(TunnelService.active)
-            draft.optJSONObject("sourceEditor")?.let { showSourceEditor(it) }
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                runCatching { patch() }.onSuccess(onSave)
-            }
-        }
-        dialog.setOnDismissListener { sourceDialog?.dismiss(); io.shutdown(); onClosed() }
+        cancelButton = ui.button(R.string.cancel) { if (!saving) close() }
+        toolbar.addView(cancelButton, LinearLayout.LayoutParams(-2, dp(48)))
+        toolbar.addView(TextView(activity).apply {
+            setText(if (profile == null) R.string.add_profile else R.string.edit_profile)
+            setTextColor(ui.ink); textSize = 18f
+            maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(dp(8), 0, dp(8), 0)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        saveButton = ui.button(R.string.save, primary = true) { save() }
+        toolbar.addView(saveButton, LinearLayout.LayoutParams(-2, dp(48)))
+        root.addView(toolbar)
+        scroll = ScrollView(activity).apply { addView(content); isFillViewport = true }
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        buildSources()
+        field(content, "name", R.string.editor_name, source.optString("name"), max = 120, hint = R.string.from_profile)
+        val row = LinearLayout(activity)
+        fieldCell(row, "connections", R.string.editor_connections_short, source.optString("connections", defaults.getJSONObject("connections").getInt("default").toString()))
+        fieldCell(row, "mtu", R.string.editor_mtu_short, source.optString("mtu", defaults.getJSONObject("mtu").getInt("default").toString()))
+        content.addView(row)
+        selector(content, "turnTransport", R.string.editor_turn, listOf("", "tcp", "udp"), listOf(activity.getString(R.string.from_profile), "TCP", "UDP"), source.optString("turnTransport"))
+        advanced = column()
+        disclosure(R.string.advanced_settings, advanced, restored.optBoolean("advancedOpen"))
+        field(advanced, "dns", R.string.editor_dns, source.optString("dns"), hint = R.string.from_profile)
+        field(advanced, "keepalive", R.string.editor_keepalive, source.optString("keepalive"), numeric = true, hint = R.string.from_profile)
+        field(advanced, "turnServerOverride", R.string.editor_turn_server, source.optString("turnServerOverride"))
+        field(advanced, "uplinkPaceKiB", R.string.editor_uplink, source.optString("uplinkPaceKiB"), numeric = true, hint = R.string.from_profile)
+        field(advanced, "cooldownSeconds", R.string.editor_cooldown, source.optString("cooldownSeconds"), numeric = true, hint = R.string.from_profile)
+        booleanSelector("vkAuth", R.string.editor_vk_auth)
+        booleanSelector("forceLegacyCaptcha", R.string.editor_legacy_captcha)
+        routingContent = column()
+        disclosure(R.string.routing, routingContent, restored.optBoolean("routingOpen"))
+        buildRouting()
+        dialog.setContentView(root)
+        dialog.setOnDismissListener { io.shutdown(); onClosed() }
+        root.isFocusableInTouchMode = true
+        root.requestFocus()
+        updateMode()
     }
 
-    fun show() { dialog.show() }
+    private fun buildSources() {
+        modeControl = RadioGroup(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = ui.shape(ui.surface, outline = true)
+        }
+        for ((index, label) in listOf(R.string.mode_link, R.string.mode_wireguard).withIndex()) {
+            modeControl.addView(RadioButton(activity).apply {
+                id = if (index == 0) linkModeId else wireGuardModeId
+                setText(label); buttonDrawable = null
+                gravity = Gravity.CENTER; textSize = 14f
+                setTextColor(ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(ui.accent, ui.muted)))
+                background = StateListDrawable().apply {
+                    addState(intArrayOf(android.R.attr.state_checked), ui.shape(ui.selected))
+                    addState(intArrayOf(), ui.shape(Color.TRANSPARENT))
+                }
+            }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }
+        modeControl.check(if (inputs.mode == ProfileInputMode.LINK) linkModeId else wireGuardModeId)
+        content.addView(modeControl)
+        sourceLabel = ui.label(R.string.mode_link)
+        content.addView(sourceLabel)
+        sourceInput = EditText(activity).apply {
+            id = View.generateViewId()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            imeOptions = android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            minLines = 5; maxLines = 7; gravity = Gravity.TOP
+            typeface = Typeface.MONOSPACE
+            filters = arrayOf(InputFilter.LengthFilter(MAX_PROFILE_BYTES))
+            isSaveEnabled = false
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+            ui.styleInput(this)
+            setText(inputs.current())
+        }
+        sourceLabel.labelFor = sourceInput.id
+        content.addView(sourceInput, LinearLayout.LayoutParams(-1, dp(144)))
+        sourceError = TextView(activity).apply {
+            setTextColor(Color.parseColor(if (activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES) "#FF9A9A" else "#B3261E")); textSize = 13f
+            visibility = View.GONE; accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        content.addView(sourceError)
+        val sourceActions = LinearLayout(activity).apply { setPadding(0, dp(8), 0, 0) }
+        sourceActions.addView(ui.button(R.string.paste_clipboard) {
+            val clipboard = activity.getSystemService(ClipboardManager::class.java)
+            val text = clipboard.primaryClip?.getItemAt(0)?.coerceToText(activity)?.toString().orEmpty()
+            if (text.isNotEmpty()) { sourceInput.setText(text); sourceError.visibility = View.GONE }
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        sourceActions.addView(ui.button(R.string.from_file) { if (!connectionActive) onChooseFile() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(8) })
+        content.addView(sourceActions)
+        wgOptions = column()
+        field(wgOptions, "vkLink", R.string.vk_link, metadata.optString("vkLink", source.optString("vkLink")))
+        field(wgOptions, "peer", R.string.editor_peer_override, metadata.optString("peerOverride"), hint = R.string.from_config)
+        selector(wgOptions, "transport", R.string.editor_transport, listOf("srtp", "dtls"), listOf("SRTP", "DTLS"), metadata.optString("transport", source.optString("transport", defaults.getString("defaultTransport"))))
+        content.addView(wgOptions)
+        modeControl.setOnCheckedChangeListener { _, checked ->
+            inputs.select(if (checked == wireGuardModeId) ProfileInputMode.WIREGUARD else ProfileInputMode.LINK, sourceInput.text.toString())
+            sourceInput.setText(inputs.current())
+            sourceError.visibility = View.GONE
+            updateMode()
+        }
+    }
+
+    private fun updateMode() {
+        val wireGuard = inputs.mode == ProfileInputMode.WIREGUARD
+        sourceLabel.setText(if (wireGuard) R.string.wg_config else R.string.link_json_label)
+        sourceInput.setHint(if (wireGuard) R.string.wg_config_hint else R.string.link_json_hint)
+        wgOptions.visibility = if (wireGuard) View.VISIBLE else View.GONE
+    }
+
+    fun loadFile(text: String) {
+        inputs.select(inputs.mode, sourceInput.text.toString())
+        inputs.loadFile(text)
+        sourceInput.setText(inputs.current())
+        modeControl.check(if (inputs.mode == ProfileInputMode.LINK) linkModeId else wireGuardModeId)
+        sourceError.visibility = View.GONE
+        updateMode()
+    }
+
+    @Suppress("DEPRECATION")
+    fun show() {
+        dialog.show()
+        dialog.window?.apply {
+            clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            statusBarColor = ui.background
+            navigationBarColor = ui.background
+            val lightBars = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            decorView.systemUiVisibility = if (ui.dark) decorView.systemUiVisibility and lightBars.inv()
+                else decorView.systemUiVisibility or lightBars
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
+            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        }
+    }
     fun close() { dialog.dismiss() }
     fun setSaving(value: Boolean) { saving = value; updateSaveButton() }
     fun setConnectionActive(value: Boolean) { connectionActive = value; updateSaveButton() }
-    private fun updateSaveButton() { dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled = !saving && !connectionActive }
+    private fun updateSaveButton() {
+        saveButton.isEnabled = !saving && !connectionActive
+        cancelButton.isEnabled = !saving
+        dialog.setCancelable(!saving)
+    }
 
     fun draft(): String {
-        val value = JSONObject()
+        inputs.select(inputs.mode, sourceInput.text.toString())
+        val value = JSONObject().put("mode", if (inputs.mode == ProfileInputMode.WIREGUARD) "wireguard" else "link")
+            .put("linkInput", inputs.link).put("wgInput", inputs.wireGuard)
+            .put("advancedOpen", advanced.visibility == View.VISIBLE).put("routingOpen", routingContent.visibility == View.VISIBLE)
         fields.forEach { (key, field) -> value.put(key, field.text.toString()) }
         selectors.forEach { (key, selection) -> value.put(key, selection.second[selection.first.selectedItemPosition]) }
-        checks.forEach { (key, check) -> value.put(key, check.isChecked) }
-        value.put("routing", routingValue())
-        if (sourceDialog?.isShowing == true) value.put("sourceEditor", JSONObject()
-            .put("input", sourceInput?.text.toString()).put("vkLink", sourceLink?.text.toString()))
-        return value.toString()
+        return value.put("routing", routingValue()).put("routingSelection", modes[routingMode.selectedItemPosition]).toString()
     }
 
-    private fun showSourceEditor(saved: JSONObject? = null) {
-        if (TunnelService.active) { showMessage(R.string.disconnect_before_edit); return }
-        val input = EditText(activity).apply {
-            setText(saved?.optString("input") ?: profile)
-            setHint(R.string.profile_input)
-            minLines = 5
-            maxLines = 10
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            imeOptions = android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-            isSaveEnabled = false
-            filters = arrayOf(InputFilter.LengthFilter(MAX_PROFILE_BYTES))
+    private fun save() {
+        if (connectionActive || saving) return
+        sourceError.visibility = View.GONE
+        val raw = sourceInput.text.toString().trim().removePrefix("\uFEFF").trimStart()
+        if (raw.isEmpty()) { sourceFailure(activity.getString(R.string.paste_empty)); return }
+        val wireGuard = inputs.mode == ProfileInputMode.WIREGUARD
+        if (!wireGuard && raw.startsWith("http", ignoreCase = true)) { sourceFailure(activity.getString(R.string.download_link_hint)); return }
+        if (wireGuard != (ProfileInput.detectMode(raw) == ProfileInputMode.WIREGUARD)) {
+            sourceFailure(activity.getString(if (wireGuard) R.string.switch_to_link else R.string.switch_to_wireguard)); return
         }
-        val link = EditText(activity).apply {
-            setHint(R.string.vk_link)
-            setText(saved?.optString("vkLink").orEmpty())
-            setSingleLine(true)
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-            isSaveEnabled = false
+        if (wireGuard && fields.getValue("vkLink").text.isBlank()) { invalid(fields.getValue("vkLink")); return }
+        val patch = JSONObject(metadata.optJSONObject("overrides")?.toString() ?: "{}")
+        val connections = integer("connections", range("connections")) ?: return
+        val mtu = integer("mtu", range("mtu")) ?: return
+        patch.put("connections", connections).put("mtu", mtu)
+        val name = fields.getValue("name").text.toString().trim()
+        if (name.isEmpty()) patch.remove("name")
+        else if (name != baselineFields["name"]) patch.put("name", name)
+        patch.put("turnTransport", selection("turnTransport"))
+        if (wireGuard) {
+            val peer = fields.getValue("peer").text.toString().trim()
+            if (peer.isNotEmpty()) patch.put("peer", peer) else patch.remove("peer")
+            patch.put("transport", selection("transport"))
+        } else {
+            patch.remove("peer")
+            patch.remove("transport")
         }
-        sourceInput = input
-        sourceLink = link
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), 0, dp(20), 0)
-            addView(TextView(activity).apply { setText(R.string.edit_source_hint) })
-            addView(input)
-            addView(link)
+        for (key in listOf("dns", "keepalive", "turnServerOverride", "uplinkPaceKiB", "cooldownSeconds")) {
+            val field = fields.getValue(key)
+            if (field.text.toString() == baselineFields[key]) continue
+            if (field.text.isBlank()) {
+                patch.remove(key)
+                continue
+            }
+            if (key in listOf("keepalive", "uplinkPaceKiB", "cooldownSeconds")) {
+                val number = integer(key, if (key == "keepalive") 0..65535 else 0..Int.MAX_VALUE) ?: return
+                patch.put(key, number)
+            } else patch.put(key, field.text.toString())
         }
-        val editor = AlertDialog.Builder(activity).setTitle(R.string.edit_source)
-            .setView(ScrollView(activity).apply { addView(layout) })
-            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.apply_source, null).create()
-        sourceDialog = editor
-        editor.setOnDismissListener { sourceDialog = null; sourceInput = null; sourceLink = null }
-        editor.setOnShowListener {
-            editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (TunnelService.active) { showMessage(R.string.disconnect_before_edit); return@setOnClickListener }
-                if (input.text.isBlank()) { input.error = activity.getString(R.string.paste_empty); return@setOnClickListener }
-                editor.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
-                val raw = input.text.toString()
-                val vkLink = link.text.toString()
-                io.execute {
-                    val result = runCatching { Mobile.importProfile(raw, vkLink.trim()) }
-                    activity.runOnUiThread {
-                        if (!dialog.isShowing || !editor.isShowing || activity.isDestroyed) return@runOnUiThread
-                        editor.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
-                        if (TunnelService.active) { showMessage(R.string.disconnect_before_edit); return@runOnUiThread }
-                        result.onSuccess { canonical -> editor.dismiss(); onSourceChanged(canonical) }
-                            .onFailure { showMessage(R.string.import_error, it.message.orEmpty()) }
-                    }
+        for (key in listOf("vkAuth", "forceLegacyCaptcha")) {
+            val selected = selection(key)
+            if (selected.isEmpty()) patch.remove(key) else patch.put(key, selected == "true")
+        }
+        if (routingMode.selectedItemPosition == 0) patch.remove("routing") else patch.put("routing", routingValue())
+        val vkLink = if (wireGuard) fields.getValue("vkLink").text.toString().trim() else ""
+        val peerOverride = fields.getValue("peer").text.toString().trim()
+        val transport = selection("transport")
+        setSaving(true)
+        io.execute {
+            val result = runCatching {
+                val imported = if (wireGuard) Mobile.importWireGuardProfile(raw, vkLink, peerOverride)
+                    else Mobile.importProfile(raw, "")
+                val canonical = if (wireGuard && profile != null) Mobile.mergeWireGuardProfile(profile, imported) else imported
+                val updated = JSONObject(Mobile.updateProfile(canonical, patch.toString()))
+                val editor = updated.optJSONObject("androidEditor") ?: JSONObject(metadata.toString())
+                editor.put("mode", if (wireGuard) "wireguard" else "link").put("overrides", patch)
+                if (wireGuard) {
+                    editor.put("wgConfig", raw).put("vkLink", vkLink).put("peerOverride", peerOverride).put("transport", transport)
+                    editor.remove("linkSource")
+                } else {
+                    val linkSource = if (raw.startsWith("{")) JSONObject(raw).apply { remove("androidEditor") }.toString() else raw
+                    editor.put("linkSource", linkSource)
+                    editor.remove("wgConfig")
+                    editor.remove("vkLink")
+                    editor.remove("peerOverride")
+                    editor.remove("transport")
                 }
+                updated.put("androidEditor", editor).toString()
+            }
+            activity.runOnUiThread {
+                if (!dialog.isShowing || activity.isDestroyed) return@runOnUiThread
+                if (TunnelService.active) { setSaving(false); sourceFailure(activity.getString(R.string.disconnect_before_edit)); return@runOnUiThread }
+                result.onSuccess(onSave).onFailure { setSaving(false); sourceFailure(it.message.orEmpty().take(512)) }
             }
         }
-        editor.show()
     }
 
-    private fun patch(): String {
-        val value = JSONObject(draft())
-        value.remove("sourceEditor")
-        if (fields.getValue("name").text.isBlank()) invalid(fields.getValue("name"))
-        for ((key, bounds) in mapOf("connections" to range("connections"), "mtu" to range("mtu"), "keepalive" to 0..65535,
-            "uplinkPaceKiB" to 0..Int.MAX_VALUE, "cooldownSeconds" to 0..Int.MAX_VALUE)) {
-            val field = fields.getValue(key)
-            val number = field.text.toString().toIntOrNull()
-            if (number == null || number !in bounds) invalid(field)
-            value.put(key, number)
+    private fun sourceFailure(message: String) {
+        sourceError.text = message
+        sourceError.visibility = View.VISIBLE
+        scroll.smoothScrollTo(0, 0)
+    }
+
+    private fun integer(key: String, bounds: IntRange): Int? {
+        val field = fields.getValue(key)
+        return field.text.toString().toIntOrNull()?.takeIf { it in bounds } ?: run {
+            if (field.parent === advanced) advanced.visibility = View.VISIBLE
+            field.error = activity.getString(R.string.value_range, bounds.first, bounds.last)
+            field.requestFocus()
+            null
         }
-        return value.toString()
     }
 
-    private fun routingValue(): JSONObject = JSONObject(routing.toString()).apply {
-        put("mode", modes[routingMode.selectedItemPosition])
-        put("geoip", JSONArray(selectedGeoIP.toList().sorted()))
-        put("geosite", JSONArray(selectedGeoSite.toList().sorted()))
-        put("custom", custom.text.toString())
-        put("localDirect", localDirect.isChecked)
-    }
-
-    private fun invalid(field: EditText): Nothing {
+    private fun invalid(field: EditText) {
+        if (field.parent === advanced) advanced.visibility = View.VISIBLE
         field.error = activity.getString(R.string.invalid_value)
         field.requestFocus()
-        throw IllegalArgumentException("invalid field")
     }
 
-    private fun label(text: Int, target: View? = null) {
-        content.addView(TextView(activity).apply {
-            this.text = when (text) {
-                R.string.editor_connections -> activity.getString(text, range("connections").first, range("connections").last)
-                R.string.editor_mtu -> activity.getString(text, range("mtu").first, range("mtu").last)
-                else -> activity.getString(text)
+    private fun fieldCell(row: LinearLayout, key: String, label: Int, initial: String) {
+        val cell = column()
+        field(cell, key, label, initial, numeric = true)
+        row.addView(cell, LinearLayout.LayoutParams(0, -2, 1f).apply { if (row.childCount > 0) leftMargin = dp(12) })
+    }
+
+    private fun field(parent: LinearLayout, key: String, title: Int, initial: String, numeric: Boolean = false, max: Int = 2048, hint: Int? = null) {
+        baselineFields[key] = initial
+        val field = EditText(activity).apply {
+            id = View.generateViewId()
+            inputType = when {
+                numeric -> InputType.TYPE_CLASS_NUMBER
+                key == "vkLink" || key == "peer" -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                else -> InputType.TYPE_CLASS_TEXT
             }
-            setPadding(0, dp(12), 0, dp(2))
-            if (target != null) labelFor = target.id
+            setSingleLine(true)
+            setText(restored.optString(key, initial))
+            filters = arrayOf(InputFilter.LengthFilter(max))
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+            isSaveEnabled = false
+            ui.styleInput(this)
+            if (hint != null) setHint(hint)
+        }
+        fields[key] = field
+        parent.addView(ui.label(title).apply { labelFor = field.id })
+        parent.addView(field, LinearLayout.LayoutParams(-1, dp(48)))
+    }
+
+    private fun selector(parent: LinearLayout, key: String, title: Int, values: List<String>, labels: List<String>, initial: String) {
+        val control = Spinner(activity).apply {
+            id = View.generateViewId()
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, labels)
+            setSelection(values.indexOf(restored.optString(key, initial)).coerceAtLeast(0))
+            ui.styleSpinner(this)
+        }
+        selectors[key] = control to values
+        parent.addView(ui.label(title).apply { labelFor = control.id })
+        parent.addView(control, LinearLayout.LayoutParams(-1, dp(48)))
+    }
+
+    private fun selection(key: String): String = selectors.getValue(key).let { it.second[it.first.selectedItemPosition] }
+
+    private fun booleanSelector(key: String, title: Int) {
+        val overrides = metadata.optJSONObject("overrides")
+        val initial = if (overrides?.has(key) == true) overrides.optBoolean(key).toString() else ""
+        selector(advanced, key, title, listOf("", "true", "false"),
+            listOf(activity.getString(R.string.from_profile), activity.getString(R.string.option_yes), activity.getString(R.string.option_no)), initial)
+    }
+
+    private fun disclosure(title: Int, body: LinearLayout, expanded: Boolean) {
+        body.visibility = if (expanded) View.VISIBLE else View.GONE
+        val toggle = ui.button(title) {}
+        fun updateArrow() {
+            toggle.setCompoundDrawablesWithIntrinsicBounds(0, 0,
+                if (body.visibility == View.VISIBLE) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down, 0)
+            toggle.compoundDrawableTintList = ColorStateList.valueOf(ui.muted)
+        }
+        toggle.setOnClickListener {
+            body.visibility = if (body.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            updateArrow()
+        }
+        updateArrow()
+        content.addView(toggle, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(20) })
+        content.addView(body)
+    }
+
+    private fun buildRouting() {
+        routingMode = Spinner(activity).apply {
+            contentDescription = activity.getString(R.string.routing_mode)
+            ui.styleSpinner(this)
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf(activity.getString(R.string.from_profile), activity.getString(R.string.routing_all), activity.getString(R.string.routing_include), activity.getString(R.string.routing_exclude)))
+            val initial = if (metadata.optJSONObject("overrides")?.has("routing") == true) routing.optString("mode") else "profile"
+            setSelection(modes.indexOf(restored.optString("routingSelection", initial)).coerceAtLeast(0))
+        }
+        routingContent.addView(routingMode, LinearLayout.LayoutParams(-1, dp(48)))
+        geoIP = ui.button(R.string.geoip) { chooseCatalog("geoip", selectedGeoIP, R.string.geoip) }
+        geoSite = ui.button(R.string.geosite) { chooseCatalog("geosite", selectedGeoSite, R.string.geosite) }
+        routingContent.addView(geoIP); routingContent.addView(geoSite)
+        updateSelectionLabels()
+        custom = EditText(activity).apply {
+            id = View.generateViewId()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 3; maxLines = 7; setText(routing.optString("custom"))
+            filters = arrayOf(InputFilter.LengthFilter(65536))
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+            ui.styleInput(this)
+        }
+        routingContent.addView(ui.label(R.string.routing_custom).apply { labelFor = custom.id })
+        routingContent.addView(custom)
+        localDirect = CheckBox(activity).apply { setText(R.string.routing_local); isChecked = routing.optBoolean("localDirect") }
+        routingContent.addView(localDirect)
+        routingMode.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) { updateRoutingControls() }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+        }
+        updateRoutingControls()
+        routingContent.addView(ui.button(R.string.update_catalogs) {
+            RoutingCatalogUpdates.update(activity) { result ->
+                if (dialog.isShowing && !activity.isDestroyed) result.onSuccess { showMessage(R.string.catalog_updated) }.onFailure { showMessage(R.string.error, it.message.orEmpty()) }
+            }
         })
     }
 
-    private fun field(key: String, title: Int, numeric: Boolean = false, max: Int = 2048) {
-        val field = EditText(activity).apply {
-            id = View.generateViewId()
-            inputType = if (numeric) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
-            setSingleLine(true)
-            setText(draft.optString(key, source.optString(key)))
-            filters = arrayOf(InputFilter.LengthFilter(max))
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-        }
-        fields[key] = field
-        label(title, field)
-        content.addView(field, LinearLayout.LayoutParams(-1, dp(52)))
+    private fun routingValue(): JSONObject = JSONObject(routing.toString()).apply {
+        put("mode", modes[routingMode.selectedItemPosition]); put("geoip", JSONArray(selectedGeoIP.toList().sorted()))
+        put("geosite", JSONArray(selectedGeoSite.toList().sorted())); put("custom", custom.text.toString()); put("localDirect", localDirect.isChecked)
     }
 
-    private fun selector(key: String, title: Int, values: List<String>, labels: List<String>) {
-        val selector = Spinner(activity).apply {
-            id = View.generateViewId()
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, labels)
-            setSelection(values.indexOf(draft.optString(key)).coerceAtLeast(0))
-        }
-        selectors[key] = selector to values
-        label(title, selector)
-        content.addView(selector, LinearLayout.LayoutParams(-1, dp(52)))
+    private fun updateRoutingControls() {
+        val selected = routingMode.selectedItemPosition
+        geoIP.isEnabled = selected >= 2
+        geoSite.isEnabled = selected >= 2
+        custom.isEnabled = selected >= 2
+        localDirect.isEnabled = selected != 0
     }
 
-    private fun check(key: String, title: Int) {
-        val control = CheckBox(activity).apply { setText(title); isChecked = draft.optBoolean(key, source.optBoolean(key)) }
-        checks[key] = control
-        content.addView(control)
-    }
-
+    private fun column() = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     private fun chooseCatalog(key: String, selected: MutableSet<String>, title: Int) {
         io.execute {
             val result = runCatching { JSONObject(Mobile.routingCatalog(routingDirectory())).getJSONArray(key) }

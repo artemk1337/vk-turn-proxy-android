@@ -5,14 +5,13 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
-import android.graphics.Color
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.view.Gravity
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -30,26 +29,28 @@ import java.io.File
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
+    private lateinit var ui: ProfileUi
     private lateinit var store: ProfileStore
     private lateinit var profiles: Spinner
     private lateinit var state: TextView
     private lateinit var traffic: TextView
     private lateinit var connect: Button
+    private lateinit var profileActions: LinearLayout
     private lateinit var edit: Button
     private lateinit var remove: Button
     private lateinit var captcha: Button
-    private lateinit var paste: Button
-    private lateinit var importFile: Button
+    private lateinit var add: Button
     private var pendingImportPreview = false
-    private var pendingDeepLink: String? = null
     private var ids = emptyList<String>()
     private var pendingProfile: String? = null
     private var editor: ProfileEditor? = null
     private var editingId: String? = null
+    private var editorGeneration = 0
+    private var filePickerGeneration: Int? = null
+    private var destroying = false
     private val handler = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
     private val preferencesFile: File get() = File(filesDir, "preferences.properties")
-    private val importDraftFile: File get() = File(noBackupFilesDir, "import-draft.json")
     private val editorDraftFile: File get() = File(noBackupFilesDir, "editor-draft.json")
     private val editorSourceFile: File get() = File(noBackupFilesDir, "editor-source.json")
     private val pendingImportFile: File get() = File(noBackupFilesDir, "pending-import.json")
@@ -70,9 +71,7 @@ class MainActivity : Activity() {
             val reason = details?.optString("error").orEmpty()
             if (reason.isNotBlank()) state.text = getString(R.string.status_detail, state.text, reason)
             val remaining = ((details?.optLong("retryAt") ?: 0) - System.currentTimeMillis() + 999) / 1000
-            if (remaining > 0 && status in listOf("waiting_quota", "reconnecting")) {
-                state.text = getString(R.string.retry_remaining, state.text, remaining)
-            }
+            if (remaining > 0 && status in listOf("waiting_quota", "reconnecting")) state.text = getString(R.string.retry_remaining, state.text, remaining)
             val stats = details?.optJSONObject("stats")
             traffic.visibility = if (TunnelService.active && stats != null) View.VISIBLE else View.GONE
             if (stats != null) traffic.text = getString(R.string.traffic_summary,
@@ -81,24 +80,20 @@ class MainActivity : Activity() {
             val active = TunnelService.active
             connect.setText(if (active) R.string.disconnect else R.string.connect)
             connect.isEnabled = status != "stopping" && (active || ids.isNotEmpty())
-            profiles.isEnabled = !active
+            connect.visibility = if (active || ids.isNotEmpty()) View.VISIBLE else View.GONE
+            profiles.isEnabled = !active && ids.isNotEmpty()
+            profileActions.visibility = if (ids.isEmpty()) View.GONE else View.VISIBLE
             edit.isEnabled = !active && ids.isNotEmpty()
             remove.isEnabled = !active && ids.isNotEmpty()
-            paste.isEnabled = !active
-            importFile.isEnabled = !active
+            add.isEnabled = !active
             editor?.setConnectionActive(active)
-            if (!active && editor == null) {
-                if (pendingImportPreview) {
-                    pendingImportPreview = false
-                    runCatching {
-                        importDraftFile.writeText(pendingImportFile.readText())
-                        pendingImportFile.delete()
-                        openEditor(null)
-                    }.onFailure { showError(R.string.import_error) }
-                } else pendingDeepLink?.let {
-                    pendingDeepLink = null
-                    confirmDeepLink(it)
-                }
+            if (!active && editor == null && pendingImportPreview) {
+                pendingImportPreview = false
+                runCatching {
+                    val input = pendingImportFile.readText()
+                    pendingImportFile.delete()
+                    openEditor(null, initialInput = input)
+                }.onFailure { showError(R.string.import_error) }
             }
             captcha.visibility = if (status == "waiting_captcha") View.VISIBLE else View.GONE
             handler.postDelayed(this, 750)
@@ -109,15 +104,15 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ui = ProfileUi(this)
         store = ProfileStore(File(filesDir, "profiles"))
         AccountStore(this)
         pendingProfile = savedInstanceState?.getString("pendingProfile")
-        pendingImportPreview = savedInstanceState?.getBoolean("pendingImportPreview") ?: false
-        pendingDeepLink = savedInstanceState?.getString("pendingDeepLink")
-        val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        val ink = if (night) Color.rgb(240, 244, 255) else Color.rgb(23, 35, 60)
-        val muted = if (night) Color.rgb(173, 185, 208) else Color.rgb(93, 109, 135)
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(28), dp(24), dp(24)) }
+        editorGeneration = savedInstanceState?.getInt("editorGeneration") ?: 0
+        filePickerGeneration = savedInstanceState?.getInt("filePickerGeneration", -1)?.takeIf { it >= 0 }
+        pendingImportPreview = savedInstanceState?.getBoolean("pendingImportPreview") ?: pendingImportFile.exists()
+        if (savedInstanceState == null) { editorDraftFile.delete(); editorSourceFile.delete() }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(20), dp(20), dp(24)) }
         val scroll = ScrollView(this).apply { isFillViewport = true; addView(content) }
         setContentView(scroll)
         @Suppress("DEPRECATION")
@@ -125,22 +120,30 @@ class MainActivity : Activity() {
             view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop, insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
             insets
         }
-        content.addView(ImageView(this).apply {
+        val brand = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        brand.addView(ImageView(this).apply {
             setImageResource(R.drawable.logo); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        }, LinearLayout.LayoutParams(dp(56), dp(56)).apply { bottomMargin = dp(16) })
-        content.addView(TextView(this).apply { setText(R.string.app_name); textSize = 28f; setTextColor(ink) })
+        }, LinearLayout.LayoutParams(dp(36), dp(36)))
+        brand.addView(TextView(this).apply { setText(R.string.app_name); textSize = 22f; setTextColor(ui.ink) },
+            LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(12) })
+        content.addView(brand)
         state = TextView(this).apply {
-            setText(R.string.disconnected); textSize = 17f; setTextColor(muted)
+            setText(R.string.disconnected); textSize = 16f; setTextColor(ui.muted)
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-            setPadding(0, dp(12), 0, dp(12))
+            setPadding(0, dp(20), 0, dp(8))
         }
         content.addView(state)
-        traffic = TextView(this).apply { setTextColor(muted); textSize = 13f }
+        traffic = TextView(this).apply { setTextColor(ui.muted); textSize = 13f }
         content.addView(traffic)
-        content.addView(TextView(this).apply { setText(R.string.profiles); setPadding(0, dp(16), 0, 0); setTextColor(muted) })
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(16))
+            background = ui.shape(ui.surface, outline = true)
+        }
+        card.addView(ui.label(R.string.profiles))
         profiles = Spinner(this)
-        content.addView(profiles, LinearLayout.LayoutParams(-1, dp(56)))
-        connect = button(R.string.connect) {
+        card.addView(profiles, LinearLayout.LayoutParams(-1, dp(52)))
+        connect = ui.button(R.string.connect, primary = true) {
             if (TunnelService.active) startService(Intent(this, TunnelService::class.java).setAction(TunnelService.ACTION_STOP))
             else {
                 pendingProfile = selectedId()
@@ -150,11 +153,12 @@ class MainActivity : Activity() {
                 }
             }
         }
-        content.addView(connect, LinearLayout.LayoutParams(-1, dp(56)))
-        captcha = button(R.string.account_captcha) { AccountScreen.showCaptcha(this) }
-        content.addView(captcha)
-        edit = button(R.string.edit_profile) { selectedId()?.let { openEditor(it) } }
-        remove = button(R.string.delete) {
+        card.addView(connect, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+        captcha = button(R.string.account_captcha) { AccountScreen.showCaptcha(this) }.apply { visibility = View.GONE }
+        card.addView(captcha)
+        profileActions = LinearLayout(this)
+        edit = button(R.string.edit_action) { selectedId()?.let { openEditor(it) } }
+        remove = button(R.string.delete_action) {
             val id = selectedId() ?: return@button
             AlertDialog.Builder(this).setMessage(R.string.delete_title).setNegativeButton(R.string.cancel, null)
                 .setPositiveButton(R.string.delete) { _, _ ->
@@ -162,41 +166,33 @@ class MainActivity : Activity() {
                     reloadProfiles()
                 }.show()
         }
-        content.addView(edit)
-        content.addView(remove)
-        paste = button(R.string.paste_profile) { if (!TunnelService.active) showPasteDialog() }
-        content.addView(paste)
-        importFile = button(R.string.import_file) {
-            if (TunnelService.active) return@button
-            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), IMPORT_REQUEST)
-        }
-        content.addView(importFile)
-        content.addView(TextView(this).apply { setText(R.string.profile_hint); textSize = 13f; setTextColor(muted); setPadding(0, dp(4), 0, dp(20)) })
-        content.addView(button(R.string.account_title) { AccountScreen.show(this) })
-        content.addView(button(R.string.settings) { showSettings() })
-        content.addView(button(R.string.logs) { showLogs() })
+        profileActions.addView(edit, LinearLayout.LayoutParams(0, dp(48), 1f))
+        profileActions.addView(remove, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(8) })
+        card.addView(profileActions, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        content.addView(card, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
+        add = ui.button(R.string.add_profile, primary = true) { if (!TunnelService.active) openEditor(null) }
+        content.addView(add, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(16) })
+        val navigation = LinearLayout(this)
+        navigation.addView(button(R.string.account_title) { AccountScreen.show(this) }, LinearLayout.LayoutParams(0, dp(52), 1f))
+        navigation.addView(button(R.string.settings) { showSettings() }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { leftMargin = dp(6) })
+        navigation.addView(button(R.string.logs) { showLogs() }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { leftMargin = dp(6) })
+        content.addView(navigation, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(24) })
         reloadProfiles()
         if (savedInstanceState?.getBoolean("editorOpen") == true) {
             val draft = runCatching { editorDraftFile.readText() }.getOrNull()
             openEditor(savedInstanceState.getString("editorId"), draft, restoreSource = true)
         } else if (savedInstanceState == null) handleDeepLink(intent)
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
-        }
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
         updateRoutingIfDue()
     }
 
     private fun reloadProfiles(selected: String? = null) {
         val preferences = AppPreferences.load(preferencesFile)
-        val entries = store.ids().mapNotNull { id ->
-            runCatching { id to JSONObject(Mobile.describeProfile(store.read(id))).getString("name").take(128) }.getOrNull()
-        }
+        val entries = store.ids().mapNotNull { id -> runCatching { id to JSONObject(Mobile.describeProfile(store.read(id))).getString("name").take(128) }.getOrNull() }
         ids = entries.map { it.first }
         profiles.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
             entries.map { it.second }.ifEmpty { listOf(getString(R.string.no_profiles)) })
-        val activeId = AppPreferences.update(preferencesFile) {
-            it.copy(activeId = selected ?: preferences.activeId).withAvailableProfiles(ids)
-        }.activeId
+        val activeId = AppPreferences.update(preferencesFile) { it.copy(activeId = selected ?: preferences.activeId).withAvailableProfiles(ids) }.activeId
         profiles.setSelection(ids.indexOf(activeId).coerceAtLeast(0))
         profiles.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -204,90 +200,47 @@ class MainActivity : Activity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
-        connect.isEnabled = ids.isNotEmpty() || TunnelService.active
+        connect.visibility = if (ids.isNotEmpty() || TunnelService.active) View.VISIBLE else View.GONE
+        profileActions.visibility = if (ids.isEmpty()) View.GONE else View.VISIBLE
     }
 
     private fun selectedId(): String? = ids.getOrNull(profiles.selectedItemPosition)
 
-    private fun openEditor(id: String?, draft: String? = null, source: String? = null, restoreSource: Boolean = false) {
+    private fun openEditor(id: String?, draft: String? = null, initialInput: String = "", restoreSource: Boolean = false) {
+        if (TunnelService.active) { showError(R.string.disconnect_before_edit); return }
         val result = runCatching {
-            source ?: if (restoreSource && editorSourceFile.exists()) editorSourceFile.readText()
-            else if (id == null) importDraftFile.readText() else store.read(id)
+            if (restoreSource && editorSourceFile.exists()) editorSourceFile.readText().takeIf(String::isNotBlank)
+            else id?.let(store::read)
         }
-        result.onFailure { showError(R.string.profile_save_error) }.onSuccess { raw ->
+        result.onFailure { showError(R.string.profile_save_error) }.onSuccess { canonical ->
+            val generation = if (restoreSource && editorGeneration > 0) editorGeneration else ++editorGeneration
             editor?.close()
             editingId = id
-            runCatching {
-                editorSourceFile.writeText(raw)
-                editor = ProfileEditor(this, raw, draft, onSourceChanged = { canonical ->
-                    openEditor(id, source = canonical)
-                }, onSave = { patch ->
-                    if (TunnelService.active) {
-                        showError(R.string.disconnect_before_edit)
-                        return@ProfileEditor
-                    }
-                    editor?.setSaving(true)
-                    io.execute {
-                        val saved = runCatching {
-                            val updated = Mobile.updateProfile(raw, patch)
-                            TunnelService.whileDisconnected { store.save(updated, id) }
+            editorSourceFile.writeText(canonical.orEmpty())
+            editor = ProfileEditor(this, canonical, draft, initialInput, onChooseFile = {
+                filePickerGeneration = generation
+                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), IMPORT_REQUEST)
+            }, onSave = save@{ updated ->
+                if (generation != editorGeneration) return@save
+                editor?.setSaving(true)
+                io.execute {
+                    val saved = runCatching { TunnelService.whileDisconnected { store.save(updated, id) } }
+                    runOnUiThread {
+                        if (isDestroyed) return@runOnUiThread
+                        if (generation != editorGeneration) {
+                            saved.onSuccess { reloadProfiles() }
+                            return@runOnUiThread
                         }
-                        runOnUiThread {
-                            if (isDestroyed) return@runOnUiThread
-                            saved.onSuccess { savedId -> editor?.close(); reloadProfiles(if (TunnelService.active) null else savedId) }
-                                .onFailure { editor?.setSaving(false); showError(R.string.profile_save_error, it.message.orEmpty()) }
-                        }
+                        saved.onSuccess { savedId -> editor?.close(); reloadProfiles(if (TunnelService.active) null else savedId) }
+                            .onFailure { editor?.setSaving(false); showError(R.string.profile_save_error, it.message.orEmpty()) }
                     }
-                }, onClosed = {
-                    editor = null
-                    editingId = null
-                    if (!isChangingConfigurations) {
-                        editorDraftFile.delete()
-                        editorSourceFile.delete()
-                        if (id == null) importDraftFile.delete()
-                    }
-                }).also { it.show() }
-            }.onFailure { showError(R.string.profile_save_error, it.message.orEmpty()) }
-        }
-    }
-
-    private fun showPasteDialog() {
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), 0, dp(20), 0) }
-        val input = EditText(this).apply {
-            setHint(R.string.profile_input); minLines = 4; maxLines = 8
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-        }
-        val link = EditText(this).apply { setHint(R.string.vk_link); setSingleLine(true); inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI }
-        content.addView(input); content.addView(link)
-        val dialog = AlertDialog.Builder(this).setTitle(R.string.paste_profile).setView(content)
-            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.import_profile, null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (input.text.isBlank()) input.error = getString(R.string.paste_empty)
-                else { dialog.dismiss(); importText(input.text.toString(), link.text.toString()) }
-            }
-        }
-        dialog.show()
-    }
-
-    private fun importText(raw: String, vkLink: String = "") {
-        io.execute {
-            val result = runCatching { Mobile.importProfile(raw, vkLink.trim()) }
-            runOnUiThread {
-                if (isDestroyed) return@runOnUiThread
-                result.onSuccess {
-                    if (TunnelService.active) {
-                        pendingImportFile.writeText(it)
-                        pendingImportPreview = true
-                        showError(R.string.disconnect_before_edit)
-                    } else {
-                        editor?.close()
-                        importDraftFile.writeText(it)
-                        openEditor(null)
-                    }
-                }.onFailure { showError(R.string.import_error, it.message.orEmpty().take(512)) }
-            }
+                }
+            }, onClosed = closed@{
+                if (generation != editorGeneration) return@closed
+                editor = null
+                editingId = null
+                if (!isChangingConfigurations && !destroying) { editorDraftFile.delete(); editorSourceFile.delete() }
+            }).also { it.show() }
         }
     }
 
@@ -309,7 +262,10 @@ class MainActivity : Activity() {
             AppPreferences.update(preferencesFile) { it.copy(autostart = resultCode == RESULT_OK) }
             if (resultCode != RESULT_OK) showError(R.string.vpn_denied)
         }
-        if (requestCode != IMPORT_REQUEST || resultCode != RESULT_OK) return
+        if (requestCode != IMPORT_REQUEST) return
+        val owner = filePickerGeneration
+        filePickerGeneration = null
+        if (resultCode != RESULT_OK || owner != editorGeneration || editor == null) return
         val uri = data?.data ?: return
         io.execute {
             val result = runCatching {
@@ -326,13 +282,10 @@ class MainActivity : Activity() {
                 } ?: error("Could not open profile")
             }
             runOnUiThread {
-                if (isDestroyed) return@runOnUiThread
+                if (isDestroyed || owner != editorGeneration || editor == null) return@runOnUiThread
                 result.onSuccess { raw ->
-                    if (raw.lineSequence().any { it.trim().removePrefix("\uFEFF").equals("[Interface]", ignoreCase = true) }) {
-                        val link = EditText(this).apply { setHint(R.string.vk_link); setSingleLine(true) }
-                        AlertDialog.Builder(this).setTitle(R.string.vk_link).setView(link).setNegativeButton(R.string.cancel, null)
-                            .setPositiveButton(R.string.import_profile) { _, _ -> importText(raw, link.text.toString()) }.show()
-                    } else importText(raw)
+                    editor?.loadFile(raw)
+                    if (TunnelService.active) showError(R.string.disconnect_before_edit)
                 }.onFailure { showError(R.string.import_error) }
             }
         }
@@ -391,20 +344,15 @@ class MainActivity : Activity() {
     }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleDeepLink(intent) }
+
     private fun handleDeepLink(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_VIEW || intent.data?.scheme != "vkturnproxy") return
+        if (intent?.action != Intent.ACTION_VIEW || !intent.data?.scheme.orEmpty().equals("vkturnproxy", ignoreCase = true)) return
         val link = intent.data.toString()
         if (TunnelService.active) {
-            pendingDeepLink = link
+            pendingImportFile.writeText(link)
+            pendingImportPreview = true
             showError(R.string.disconnect_before_edit)
-            return
-        }
-        confirmDeepLink(link)
-    }
-
-    private fun confirmDeepLink(link: String) {
-        AlertDialog.Builder(this).setTitle(R.string.deep_link_title).setMessage(R.string.profile_import_preview)
-            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.import_profile) { _, _ -> importText(link) }.show()
+        } else openEditor(null, initialInput = link)
     }
 
     private fun showError(message: Int, detail: String = "") {
@@ -414,8 +362,9 @@ class MainActivity : Activity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("pendingProfile", pendingProfile)
+        outState.putInt("editorGeneration", editorGeneration)
+        outState.putInt("filePickerGeneration", filePickerGeneration ?: -1)
         outState.putBoolean("pendingImportPreview", pendingImportPreview)
-        outState.putString("pendingDeepLink", pendingDeepLink)
         editor?.let {
             editorDraftFile.writeText(it.draft())
             outState.putBoolean("editorOpen", true)
@@ -426,8 +375,8 @@ class MainActivity : Activity() {
 
     override fun onResume() { super.onResume(); handler.post(poll) }
     override fun onPause() { handler.removeCallbacks(poll); super.onPause() }
-    override fun onDestroy() { io.shutdown(); super.onDestroy() }
-    private fun button(label: Int, click: () -> Unit): Button = Button(this).apply { setText(label); setOnClickListener { click() } }
+    override fun onDestroy() { destroying = true; editor?.close(); io.shutdown(); super.onDestroy() }
+    private fun button(label: Int, click: () -> Unit): Button = ui.button(label, action = click)
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {

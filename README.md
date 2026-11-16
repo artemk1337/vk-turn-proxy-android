@@ -17,7 +17,7 @@ A native Android VPN client with a Kotlin interface and a Go WireGuard/TURN back
 Download the signed APK from GitHub Releases. When switching from a debug APK, uninstall the debug application and import your profiles again. [Releases](https://github.com/artemk1337/vk-turn-proxy-android/releases)
 
 1. Install the APK and open VK TURN Proxy.
-2. Paste a desktop connection link, Base64 or JSON, or import a profile file. For a WireGuard configuration, enter the VK call invitation link and import the `.conf` file. Opening a `vkturnproxy` link from another application also opens the import screen.
+2. Tap Add profile. Choose Link / JSON to paste a `vkturnproxy` connection link, Base64 or JSON. Choose WireGuard to paste a configuration or select a `.conf` file, then enter the VK call invitation link.
 3. Select the profile, tap Connect and approve Android's VPN permission request.
 4. Disconnect in the application or its persistent notification.
 
@@ -25,7 +25,11 @@ Profiles are stored in private application storage with backups disabled. The fo
 
 Edit a saved profile to change its name, peer, VK invitation link, SRTP/DTLS mode, TURN TCP/UDP selection, connection count, MTU, DNS and keepalive. Defaults and limits come from the shared desktop settings contract. Profile edits preserve WireGuard keys and unknown imported metadata. The selected profile is restored on startup.
 
-Use Edit source to replace an existing profile's JSON, connection link or WireGuard configuration while retaining its saved ID.
+The source field and connection parameters share one editor. Paste and From file are available inside each mode. MTU and connection count are editable before saving. Imported WireGuard MTU values outside the tunnel range use 1280, so the configuration can be adjusted in the application. Opening a `vkturnproxy` link from another application opens the Link / JSON editor directly. HTTP download links can be opened in a browser and their downloaded profile selected with From file.
+
+<img src="screenshots/profile-link-en-light.png" width="280" alt="Link and JSON profile editor" />
+
+Editing an existing profile restores its original source and mode. Source replacement retains the saved profile ID and unknown metadata. From profile removes an explicit setting override and inherits its value from the source.
 
 Application settings control English/Russian language, light/dark theme, boot startup, the log limit and automatic routing catalog updates. Boot startup requires an existing Android VPN permission and a selected profile.
 
