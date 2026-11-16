@@ -12,6 +12,10 @@ A native Android VPN client with a Kotlin interface and a Go WireGuard/TURN back
 - A compatible WireGuard server and an HTTPS VK call invitation link.
 - A `vkturnproxy://import?data=…` connection link, Base64 payload, version 1 JSON profile/backup, or a full-tunnel WireGuard `.conf` file.
 
+### App updates
+
+The app checks stable GitHub releases when opened, at most once a day. Open **Settings → App updates** to check manually, download an APK and install it. Android asks you to allow installation from this app and confirm the update. The APK checksum, package, version and signing certificate are verified before installation. Updating interrupts an active VPN connection.
+
 ## Use
 
 Download the signed APK from GitHub Releases. When switching from a debug APK, uninstall the debug application and import your profiles again. [Releases](https://github.com/artemk1337/vk-turn-proxy-android/releases)

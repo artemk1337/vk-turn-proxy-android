@@ -5,6 +5,7 @@
 - `ProfileEditor` opens before parsing and owns separate Link/JSON and WireGuard source forms. `ProfileInput` retains each mode's draft. Store original sources and explicit UI overrides as flat private `androidEditor` metadata. Keep inherited values distinguishable from explicit overrides. Never recursively embed editor metadata in its own source.
 - `backend/routing-runtime` owns userspace direct/tunnel forwarding and DNS policy enforcement. Follow its local `AGENTS.md` for routing invariants.
 - Account screens own isolated VK website login, private account storage, health checks and interactive captcha. Account data reaches a connection through an immutable session snapshot.
+- `AppUpdates` checks stable GitHub releases and downloads bounded APKs into private storage. Verify SHA-256, package identity, increasing version and the installed signing certificate before granting the system installer read access through `UpdateApkProvider`. Installation always requires Android confirmation.
 - `scripts/build-backend.sh` builds the AAR for ARM64, ARMv7 and x86_64. Gradle consumes the generated `app/libs/backend.aar`.
 - The pinned desktop Go module owns shared transport behavior and its allocation recovery invariants. Preserve upstream attribution.
 

@@ -48,6 +48,7 @@ class MainActivity : Activity() {
     private var editorGeneration = 0
     private var filePickerGeneration: Int? = null
     private var destroying = false
+    private var resumed = false
     private val handler = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
     private val preferencesFile: File get() = File(filesDir, "preferences.properties")
@@ -184,6 +185,7 @@ class MainActivity : Activity() {
         } else if (savedInstanceState == null) handleDeepLink(intent)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
         updateRoutingIfDue()
+        AppUpdates.prepare(this)
     }
 
     private fun reloadProfiles(selected: String? = null) {
@@ -306,6 +308,7 @@ class MainActivity : Activity() {
         val theme = selection(R.string.theme, listOf(getString(R.string.light), getString(R.string.dark)), if (before.theme == "dark") 1 else 0)
         val autostart = CheckBox(this).apply { setText(R.string.autostart); isChecked = before.autostart; content.addView(this) }
         val autoUpdate = CheckBox(this).apply { setText(R.string.routing_auto_update); isChecked = before.routingAutoUpdate; content.addView(this) }
+        content.addView(button(R.string.app_updates) { startActivity(Intent(this, AppUpdateActivity::class.java)) })
         val limit = EditText(this).apply { hint = getString(R.string.log_limit, logBounds.getInt("min"), logBounds.getInt("max")); inputType = InputType.TYPE_CLASS_NUMBER; setText(String.format(resources.configuration.locales[0], "%d", before.logLines)); content.addView(this) }
         val dialog = AlertDialog.Builder(this).setTitle(R.string.settings).setView(ScrollView(this).apply { addView(content) })
             .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.save, null).create()
@@ -373,8 +376,21 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
-    override fun onResume() { super.onResume(); handler.post(poll) }
-    override fun onPause() { handler.removeCallbacks(poll); super.onPause() }
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        handler.post(poll)
+        AppUpdates.check(this, automatic = true) { result ->
+            val release = result.getOrNull()
+            if (resumed && !isDestroyed && !isFinishing && editor == null && release != null) {
+                AlertDialog.Builder(this).setTitle(R.string.app_updates)
+                    .setMessage(getString(R.string.update_available, release.version))
+                    .setNegativeButton(R.string.cancel, null)
+                    .setPositiveButton(R.string.update_open) { _, _ -> startActivity(Intent(this, AppUpdateActivity::class.java)) }.show()
+            }
+        }
+    }
+    override fun onPause() { resumed = false; handler.removeCallbacks(poll); super.onPause() }
     override fun onDestroy() { destroying = true; editor?.close(); io.shutdown(); super.onDestroy() }
     private fun button(label: Int, click: () -> Unit): Button = ui.button(label, action = click)
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

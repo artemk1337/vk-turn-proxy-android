@@ -87,4 +87,20 @@
     <string name="option_yes">Да</string>
     <string name="option_no">Нет</string>
     <string name="routing_mode">Режим маршрутизации</string>
+    <string name="app_updates">Обновления приложения</string>
+    <string name="update_installed">Установлена версия %1$s</string>
+    <string name="update_check">Проверить обновления</string>
+    <string name="update_checking">Проверка обновлений…</string>
+    <string name="update_current">Установлена последняя версия.</string>
+    <string name="update_available">Доступна версия %1$s.</string>
+    <string name="update_download">Скачать обновление</string>
+    <string name="update_downloading">Загрузка APK · %1$d%%</string>
+    <string name="update_ready">Обновление скачано и готово к установке.</string>
+    <string name="update_install">Установить обновление</string>
+    <string name="update_open">Открыть</string>
+    <string name="update_verifying">Проверка APK…</string>
+    <string name="update_failed">Не удалось проверить или скачать обновление. Проверьте соединение и повторите попытку.</string>
+    <string name="update_permission">Разрешите установку из этого приложения в настройках Android и вернитесь для продолжения.</string>
+    <string name="update_confirm">Android запросит подтверждение установки. Обновление закроет приложение и прервёт активное VPN-подключение.</string>
+    <string name="update_install_failed">Не удалось установить обновление. Нужен APK более новой версии с той же подписью, что у установленного приложения. Попробуйте скачать его повторно.</string>
 </resources>
