@@ -14,6 +14,8 @@ A native Android VPN client with a Kotlin interface and a Go WireGuard/TURN back
 
 ## Use
 
+Download the signed APK from GitHub Releases. When switching from a debug APK, uninstall the debug application and import your profiles again. [Releases](https://github.com/artemk1337/vk-turn-proxy-android/releases)
+
 1. Install the APK and open VK TURN Proxy.
 2. Import a connection JSON profile. For a WireGuard configuration, enter the VK call invitation link and import the `.conf` file.
 3. Select the profile, tap Connect and approve Android's VPN permission request.
@@ -36,6 +38,8 @@ scripts/build-backend.sh
 ```
 
 The generated APK is `app/build/outputs/apk/debug/app-debug.apk`. The backend AAR includes ARM64, ARMv7 and x86_64. The debug APK uses Android's development signing key. Production distribution requires your own release signing configuration.
+
+Published APKs use the project's release signing key, stored separately from this repository. Build an unsigned release with `./gradlew assembleRelease`, then sign it with Android SDK `apksigner` and the same key to preserve update compatibility.
 
 ```sh
 cd backend
