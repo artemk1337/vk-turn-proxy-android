@@ -1,0 +1,27 @@
+<resources>
+    <string name="account_title">Аккаунт VK</string>
+    <string name="account_login">Войти в VK</string>
+    <string name="account_import">Импортировать cookies</string>
+    <string name="account_cookie_hint">Cookies Netscape или remixsid=…; p=…</string>
+    <string name="account_cookie_error">Введите действующие cookies VK.</string>
+    <string name="account_check">Проверить аккаунт</string>
+    <string name="account_logout">Выйти из аккаунта</string>
+    <string name="account_logout_confirm">Удалить сохранённый аккаунт VK?</string>
+    <string name="account_signed_out">Вход не выполнен</string>
+    <string name="account_valid">Аккаунт VK доступен</string>
+    <string name="account_rejected">Сессия VK истекла. Войдите снова.</string>
+    <string name="account_unavailable">Не удалось связаться с VK. Аккаунт сохранён.</string>
+    <string name="account_unknown">Ожидание проверки аккаунта</string>
+    <string name="account_close">Закрыть</string>
+    <string name="account_login_done">Сохранить аккаунт</string>
+    <string name="account_login_wait">Войдите в VK и сохраните аккаунт.</string>
+    <string name="account_login_error">Не удалось сохранить аккаунт VK. Завершите вход и повторите попытку.</string>
+    <string name="account_captcha">Пройти капчу</string>
+    <string name="account_captcha_answer">Ответ на капчу</string>
+    <string name="account_captcha_submit">Отправить ответ</string>
+    <string name="account_captcha_refresh">Обновить капчу</string>
+    <string name="account_captcha_missing">Ожидающей капчи нет.</string>
+    <string name="account_captcha_error">Не удалось отправить ответ на капчу.</string>
+    <string name="account_page_blocked">Эта страница находится за пределами входа в VK.</string>
+    <string name="account_browser_active">Сначала закройте открытое окно VK.</string>
+</resources>

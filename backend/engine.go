@@ -4,6 +4,7 @@ package mobile
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,15 +18,23 @@ type session interface {
 
 // Engine owns one VPN session. A stopped engine cannot be restarted.
 type Engine struct {
-	mu        sync.Mutex
-	stopOnce  sync.Once
-	stopped   bool
-	started   bool
-	state     string
-	errorText string
-	proxy     *proxy.Proxy
-	session   session
-	readyAt   time.Time
+	mu             sync.Mutex
+	stopOnce       sync.Once
+	stopped        bool
+	started        bool
+	state          string
+	errorText      string
+	proxy          *proxy.Proxy
+	session        session
+	readyAt        time.Time
+	cookieHeader   string
+	logs           []string
+	logLimit       int
+	lastLogState   string
+	lastLogMessage string
+	lastLogActive  int32
+	retryAt        int64
+	retryReason    string
 }
 
 func NewEngine() *Engine { return &Engine{state: "disconnected"} }
@@ -41,6 +50,8 @@ func (e *Engine) stop() {
 	p, s := e.proxy, e.session
 	e.session = nil
 	e.state = "disconnected"
+	e.retryAt, e.retryReason = 0, ""
+	e.appendLogLocked("VPN session stopped")
 	e.mu.Unlock()
 	if p != nil {
 		p.Stop()
@@ -54,6 +65,7 @@ func (e *Engine) stop() {
 func (e *Engine) Status() string {
 	e.mu.Lock()
 	state, message, p, s, readyAt := e.state, e.errorText, e.proxy, e.session, e.readyAt
+	retryAt, retryReason := e.retryAt, e.retryReason
 	e.mu.Unlock()
 	var stats proxy.Stats
 	if p != nil {
@@ -63,21 +75,27 @@ func (e *Engine) Status() string {
 		if stats.AuthError != "" {
 			state, message = "error", "VK authentication failed"
 		} else if stats.CaptchaSID != "" {
-			state, message = "error", "VK requires captcha authentication"
+			state, message = "waiting_captcha", "VK requires captcha authentication"
 		}
 	}
 	if s != nil {
 		state, message = handshakeStatus(state, message, stats.ActiveConns > 0, s.connected(), readyAt, time.Now())
 	}
+	if state == "connected" || state == "disconnected" || state == "error" || state == "waiting_captcha" {
+		retryAt, retryReason = 0, ""
+	}
 	// Captcha URLs and identifiers can carry session data.
+	e.recordStatus(state, message, stats.ActiveConns)
 	stats.CaptchaImageURL = ""
 	stats.CaptchaSID = ""
 	stats.AuthError = ""
 	data, _ := json.Marshal(struct {
-		State string      `json:"state"`
-		Error string      `json:"error"`
-		Stats proxy.Stats `json:"stats"`
-	}{state, message, stats})
+		State       string      `json:"state"`
+		Error       string      `json:"error"`
+		Stats       proxy.Stats `json:"stats"`
+		RetryAt     int64       `json:"retryAt"`
+		RetryReason string      `json:"retryReason"`
+	}{state, message, stats, retryAt, retryReason})
 	return string(data)
 }
 
@@ -108,26 +126,42 @@ func (e *Engine) begin(s settings, cachePath string) (*proxy.Proxy, error) {
 	}
 	e.started = true
 	e.state = "connecting"
-	p := proxy.NewProxy(proxy.Config{PeerAddr: s.Peer, VKLink: s.VKLink, UseDTLS: s.DTLS, UseUDP: s.UDP, UseSrtp: s.SRTP, NumConns: s.Connections, CredCachePath: cachePath, GOMAXPROCS: -1,
-		OnRetry: func(err error, _delay time.Duration) {
-			e.mu.Lock()
-			defer e.mu.Unlock()
-			if e.stopped {
-				return
-			}
-			if err == nil {
-				e.errorText = ""
-				e.state = "connecting"
-				return
-			}
-			if proxy.IsQuotaError(err) {
-				e.state = "waiting_quota"
-				e.errorText = "TURN quota unavailable"
-			} else {
-				e.state = "reconnecting"
-				e.errorText = "Transport connection failed, retrying"
-			}
-		}})
+	e.appendLogLocked("VPN session starting")
+	if s.VKAuth && e.cookieHeader == "" {
+		return nil, errors.New("VK account login is required")
+	}
+	proxy.SetVKCookieAuth(s.VKAuth || e.cookieHeader != "", e.cookieHeader, strings.Fields(s.VKLink))
+	proxy.SetForceLegacyCaptcha(s.ForceLegacyCaptcha)
+	proxy.SetUplinkPace(s.UplinkPaceKiB, 16)
+	config := s.proxyConfig(cachePath)
+	config.OnRetry = e.reportRetry
+	p := proxy.NewProxy(config)
 	e.proxy = p
 	return p, nil
+}
+
+func (e *Engine) reportRetry(err error, delay time.Duration) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.stopped {
+		return
+	}
+	if err == nil {
+		e.errorText, e.retryReason, e.retryAt = "", "", 0
+		e.state = "connecting"
+		e.appendLogLocked("Transport connection established")
+		return
+	}
+	e.retryAt = time.Now().Add(max(delay, 0)).UnixMilli()
+	var cooldown *proxy.QuotaCooldownError
+	switch {
+	case errors.As(err, &cooldown):
+		e.state, e.errorText, e.retryReason = "waiting_quota", "Previous TURN allocations may still be active", "cooldown"
+		e.retryAt = cooldown.Until.UnixMilli()
+	case proxy.IsQuotaError(err):
+		e.state, e.errorText, e.retryReason = "waiting_quota", "TURN quota unavailable", "quota"
+	default:
+		e.state, e.errorText, e.retryReason = "reconnecting", "Transport connection failed, retrying", "network"
+	}
+	e.appendLogLocked(e.errorText)
 }

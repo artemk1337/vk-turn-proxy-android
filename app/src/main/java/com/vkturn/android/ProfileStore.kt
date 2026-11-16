@@ -14,11 +14,12 @@ internal class ProfileStore(private val directory: File) {
         .sortedBy { it.lastModified() }
         .map { it.nameWithoutExtension }
 
-    fun save(json: String): String {
+    fun save(json: String, existingId: String? = null): String {
         val bytes = json.toByteArray(Charsets.UTF_8)
         require(bytes.size <= MAX_PROFILE_BYTES) { "Profile exceeds 4 MiB" }
-        val id = UUID.randomUUID().toString()
-        val temporary = File(directory, "$id.tmp")
+        val id = existingId ?: UUID.randomUUID().toString()
+        require(validId(id)) { "Invalid profile ID" }
+        val temporary = File.createTempFile("$id-", ".tmp", directory)
         try {
             java.io.FileOutputStream(temporary).use {
                 it.write(bytes)

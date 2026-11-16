@@ -17,6 +17,14 @@ class ProfileStoreTest {
         assertTrue(store.ids().isEmpty())
     }
 
+    @Test fun overwritesExistingProfileWithoutChangingItsIdentifier() {
+        val store = ProfileStore(temporary.newFolder())
+        val id = store.save("original")
+        assertEquals(id, store.save("edited", id))
+        assertEquals(listOf(id), store.ids())
+        assertEquals("edited", store.read(id))
+    }
+
     @Test fun rejectsTraversalAndNoncanonicalIdentifiers() {
         assertFalse(ProfileStore.validId("../profile"))
         assertFalse(ProfileStore.validId("1-1-1-1-1"))

@@ -1,0 +1,27 @@
+<resources>
+    <string name="account_title">VK account</string>
+    <string name="account_login">Sign in to VK</string>
+    <string name="account_import">Import cookies</string>
+    <string name="account_cookie_hint">Netscape cookies or remixsid=…; p=…</string>
+    <string name="account_cookie_error">Enter valid, unexpired VK cookies.</string>
+    <string name="account_check">Check account</string>
+    <string name="account_logout">Sign out</string>
+    <string name="account_logout_confirm">Remove the saved VK account?</string>
+    <string name="account_signed_out">Signed out</string>
+    <string name="account_valid">VK account is available</string>
+    <string name="account_rejected">VK session expired. Sign in again.</string>
+    <string name="account_unavailable">VK could not be reached. The saved account is retained.</string>
+    <string name="account_unknown">Account check pending</string>
+    <string name="account_close">Close</string>
+    <string name="account_login_done">Save account</string>
+    <string name="account_login_wait">Complete sign-in to VK, then save the account.</string>
+    <string name="account_login_error">Could not save the VK account. Complete sign-in and try again.</string>
+    <string name="account_captcha">Solve captcha</string>
+    <string name="account_captcha_answer">Captcha answer</string>
+    <string name="account_captcha_submit">Submit answer</string>
+    <string name="account_captcha_refresh">Refresh captcha</string>
+    <string name="account_captcha_missing">There is no pending captcha.</string>
+    <string name="account_captcha_error">Could not submit the captcha answer.</string>
+    <string name="account_page_blocked">This page is outside the VK sign-in flow.</string>
+    <string name="account_browser_active">Close the active VK window first.</string>
+</resources>
