@@ -3,7 +3,7 @@ module github.com/artemk1337/vk-turn-proxy-android/backend
 go 1.26.0
 
 require (
-	github.com/artemk1337/vk-turn-proxy-desktop v1.14.1-0.20261117122257-91e8de6763d9
+	github.com/artemk1337/vk-turn-proxy-desktop v1.15.2
 	golang.org/x/net v0.61.0
 	golang.org/x/sys v0.49.0
 	golang.zx2c4.com/wireguard v0.0.0-20250521234502-f333402bd9cb
