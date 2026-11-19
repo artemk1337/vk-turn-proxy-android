@@ -1,5 +1,7 @@
 # VK TURN Proxy for Android
 
+This project was created for educational and research purposes.
+
 [Русский](README.ru.md)
 
 A native Android VPN client with a Kotlin interface and a Go WireGuard/TURN backend shared with VK TURN Proxy Desktop.
